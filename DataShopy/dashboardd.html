@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DataShopy — Panel Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f0e0c;
+    --paper: #f5f2ec;
+    --cream: #ede9e0;
+    --accent: #2d5016;
+    --accent-light: #e8f0df;
+    --accent-mid: #7aad4a;
+    --danger: #8b1a1a;
+    --danger-light: #f5e8e8;
+    --warn: #7a5a1a;
+    --warn-light: #f5f0e0;
+    --border: #d6d0c4;
+    --muted: #7a7568;
+    --white: #ffffff;
+    --radius: 6px;
+    --shadow: 0 2px 12px rgba(15,14,12,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .layout { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+  }
+
+  .sidebar-brand {
+    padding: 28px 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .sidebar-brand .ds { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; color: var(--white); }
+  .sidebar-brand .tag { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+
+  .sidebar-nav { padding: 16px 0; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px;
+    font-size: 12px; color: rgba(255,255,255,0.55);
+    cursor: pointer; transition: all .15s;
+    border-left: 2px solid transparent;
+    letter-spacing: .02em;
+  }
+  .nav-item:hover { color: var(--white); background: rgba(255,255,255,0.05); }
+  .nav-item.active { color: var(--white); border-left-color: var(--accent-mid); background: rgba(122,173,74,0.1); }
+  .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 11px; color: rgba(255,255,255,0.3);
+  }
+
+  /* ── Main ── */
+  .main { margin-left: 220px; flex: 1; padding: 32px; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Header ── */
+  .page-header { margin-bottom: 28px; }
+  .page-title { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; color: var(--ink); }
+  .page-sub { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: .03em; }
+
+  /* ── Stats row ── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+  }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+  .stat-value { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 600; color: var(--ink); }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Cards / tables ── */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-title { font-size: 13px; font-weight: 500; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); padding: 10px 16px; text-align: left;
+    border-bottom: 1px solid var(--border); background: var(--paper);
+  }
+  td { padding: 12px 16px; font-size: 12px; border-bottom: 1px solid #f0ede6; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafaf7; }
+
+  .store-emoji { font-size: 20px; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .store-name-cell { display: flex; align-items: center; gap: 10px; }
+  .store-name { font-weight: 500; color: var(--ink); }
+  .store-cat { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 20px; font-size: 10px; font-weight: 500;
+  }
+  .badge-claimed { background: var(--accent-light); color: var(--accent); }
+  .badge-unclaimed { background: var(--warn-light); color: var(--warn); }
+  .badge-promo { background: #e8f0ff; color: #2a3f8f; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: var(--radius);
+    font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+    cursor: pointer; border: none; transition: all .15s; text-decoration: none;
+    letter-spacing: .02em;
+  }
+  .btn-primary { background: var(--accent); color: var(--white); }
+  .btn-primary:hover { background: #234010; }
+  .btn-sm { padding: 5px 10px; font-size: 10px; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--ink); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--danger); color: var(--white); }
+  .btn-danger:hover { background: #6b1414; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid transparent; }
+  .btn-ghost:hover { border-color: var(--border); color: var(--ink); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(15,14,12,0.5); z-index: 100;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--white);
+    border-radius: 10px;
+    width: 100%; max-width: 560px;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    animation: slideUp .2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); padding: 4px; }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--ink);
+    background: var(--paper);
+    transition: border .15s;
+    width: 100%;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { outline: none; border-color: var(--accent); background: var(--white); }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  .emoji-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .emoji-opt {
+    width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    cursor: pointer; transition: all .1s; background: var(--paper);
+  }
+  .emoji-opt.selected { border-color: var(--accent); background: var(--accent-light); }
+
+  .color-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .color-opt {
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; border: 2px solid transparent;
+    transition: transform .1s;
+  }
+  .color-opt.selected { border-color: var(--ink); transform: scale(1.15); }
+
+  /* ── Alert ── */
+  .alert {
+    padding: 10px 14px; border-radius: var(--radius);
+    font-size: 12px; margin-bottom: 16px; display: none;
+  }
+  .alert.success { background: var(--accent-light); color: var(--accent); border: 1px solid #c5dda8; }
+  .alert.error { background: var(--danger-light); color: var(--danger); border: 1px solid #e8c5c5; }
+  .alert.show { display: block; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty .big { font-size: 40px; margin-bottom: 12px; }
+  .empty p { font-size: 12px; line-height: 1.7; }
+
+  /* ── Search ── */
+  .search-row { display: flex; gap: 10px; align-items: center; }
+  .search-input {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 8px 12px; font-family: 'DM Mono', monospace; font-size: 12px;
+    background: var(--paper); color: var(--ink); width: 240px;
+  }
+  .search-input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Import section ── */
+  .import-box {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    background: var(--paper);
+    margin-bottom: 20px;
+  }
+  .import-box .big-icon { font-size: 36px; margin-bottom: 12px; }
+  .import-box p { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+
+  .progress-bar { background: var(--cream); border-radius: 4px; height: 6px; margin: 12px 0; overflow: hidden; display: none; }
+  .progress-fill { height: 100%; background: var(--accent-mid); border-radius: 4px; transition: width .3s; width: 0%; }
+
+  .log-box {
+    background: var(--ink); color: #a8d88a;
+    border-radius: var(--radius); padding: 16px;
+    font-size: 11px; line-height: 1.8; max-height: 200px;
+    overflow-y: auto; display: none; margin-top: 12px;
+  }
+
+  /* ── Claim badge ── */
+  .claim-code {
+    font-family: 'DM Mono', monospace;
+    background: var(--ink); color: var(--accent-mid);
+    padding: 10px 16px; border-radius: var(--radius);
+    font-size: 18px; letter-spacing: .15em; text-align: center;
+    margin: 12px 0;
+  }
+  
+  .section-divider {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); margin: 20px 0 10px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="ds">DataShopy</div>
+      <div class="tag">Panel Admin</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span class="icon">◈</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showPage('stores')">
+        <span class="icon">⊞</span> Locales
+      </div>
+      <div class="nav-item" onclick="showPage('promos')">
+        <span class="icon">◎</span> Promociones
+      </div>
+      <div class="nav-item" onclick="showPage('import')">
+        <span class="icon">⊕</span> Importar locales
+      </div>
+      <div class="nav-item" onclick="showPage('claims')">
+        <span class="icon">◷</span> Reclamos
+      </div>
+    </nav>
+    <div class="sidebar-footer">v1.0 · DataShopy Admin</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div class="page-title">Bienvenido</div>
+        <div class="page-sub">Gestiona todos los locales de tu ciudad desde aquí</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Total locales</div>
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-sub">en la plataforma</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Reclamados</div>
+          <div class="stat-value" id="stat-claimed">0</div>
+          <div class="stat-sub">por sus dueños</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Sin reclamar</div>
+          <div class="stat-value" id="stat-unclaimed">0</div>
+          <div class="stat-sub">esperando dueño</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Promos activas</div>
+          <div class="stat-value" id="stat-promos">0</div>
+          <div class="stat-sub">publicadas hoy</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Últimos locales agregados</span>
+          <button class="btn btn-primary btn-sm" onclick="showPage('stores'); openAddModal()">+ Agregar local</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Local</th><th>Categoría</th><th>Ciudad</th><th>Estado</th><th>Promos</th></tr>
+          </thead>
+          <tbody id="dash-recent"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── LOCALES ── -->
+    <div id="page-stores" class="page">
+      <div class="page-header">
+        <div class="page-title">Locales</div>
+        <div class="page-sub">Agrega, edita y administra todos los negocios de la plataforma</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="search-row">
+            <input class="search-input" id="store-search" placeholder="Buscar local..." oninput="renderStoresTable()" />
+            <select class="search-input" id="store-cat-filter" onchange="renderStoresTable()" style="width:160px">
+              <option value="">Todas las categorías</option>
+              <option value="Restaurante">Restaurante</option>
+              <option value="Cafetería">Cafetería</option>
+              <option value="Moda">Moda</option>
+              <option value="Calzado">Calzado</option>
+              <option value="Tecnología">Tecnología</option>
+              <option value="Salud">Salud</option>
+              <option value="Supermercado">Supermercado</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="openAddModal()">+ Nuevo local</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Local</th><th>Ciudad</th><th>Teléfono</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="stores-table"></tbody>
+        </table>
+        <div id="stores-empty" class="empty" style="display:none">
+          <div class="big">🏪</div>
+          <p>No hay locales aún.<br/>Agrega el primero o usa la importación masiva.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PROMOCIONES ── -->
+    <div id="page-promos" class="page">
+      <div class="page-header">
+        <div class="page-title">Promociones</div>
+        <div class="page-sub">Crea y gestiona promociones para cualquier local (modo admin)</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Todas las promociones</span>
+          <button class="btn btn-primary btn-sm" onclick="openPromoModal()">+ Nueva promo</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Promoción</th><th>Local</th><th>Vence</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="promos-table"></tbody>
+        </table>
+        <div id="promos-empty" class="empty" style="display:none">
+          <div class="big">🎉</div>
+          <p>Sin promociones activas.<br/>Crea una para que aparezca en la app.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── IMPORTAR ── -->
+    <div id="page-import" class="page">
+      <div class="page-header">
+        <div class="page-title">Importar locales</div>
+        <div class="page-sub">Carga múltiples locales de una vez sin tocar código</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+        <!-- Carga por CSV -->
+        <div class="card" style="overflow:visible">
+          <div class="card-header"><span class="card-title">📄 Importar desde CSV</span></div>
+          <div style="padding:20px">
+            <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+              Descarga la plantilla, rellénala en Excel o Google Sheets y súbela aquí.
+              Cada fila es un local.
+            </p>
+            <button class="btn btn-outline" style="width:100%;margin-bottom:12px" onclick="downloadTemplate()">⬇ Descargar plantilla CSV</button>
+            <button class="btn btn-outline" style="width:100%;margin-bottom:12px" onclick="downloadAppJSON()">⬇ Descargar JSON para la app</button>
+            <label style="display:block">
+              <div class="import-box" id="drop-zone" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+                <div class="big-icon">📂</div>
+                <p>Arrastra tu CSV aquí<br/>o haz clic para seleccionar</p>
+                <button class="btn btn-primary btn-sm" onclick="document.getElementById('csv-input').click()">Seleccionar archivo</button>
+              </div>
+              <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleCSV(this)"/>
+            </label>
+            <div class="progress-bar" id="csv-progress"><div class="progress-fill" id="csv-fill"></div></div>
+            <div class="log-box" id="csv-log"></div>
+          </div>
+        </div>
+
+        <!-- Carga manual rápida -->
+        <div class="card" style="overflow:visible">
+          <div class="card-header"><span class="card-title">✏️ Carga rápida manual</span></div>
+          <div style="padding:20px">
+            <div id="quick-alert" class="alert"></div>
+            <div class="form-grid">
+              <div class="form-group form-full">
+                <label>Nombre del local *</label>
+                <input id="q-name" placeholder="Ej: La Pizzería del Centro" />
+              </div>
+              <div class="form-group">
+                <label>Categoría *</label>
+                <select id="q-cat">
+                  <option>Restaurante</option>
+                  <option>Cafetería</option>
+                  <option>Moda</option>
+                  <option>Calzado</option>
+                  <option>Tecnología</option>
+                  <option>Salud</option>
+                  <option>Supermercado</option>
+                  <option>Otro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Ciudad *</label>
+                <input id="q-city" placeholder="Ej: Temuco" />
+              </div>
+              <div class="form-group form-full">
+                <label>Dirección</label>
+                <input id="q-address" placeholder="Ej: Av. Alemania 0700, Temuco" />
+              </div>
+              <div class="form-group">
+                <label>Teléfono</label>
+                <input id="q-phone" placeholder="+56 9 1234 5678" />
+              </div>
+              <div class="form-group">
+                <label>Horario (semana)</label>
+                <input id="q-sched" placeholder="Lun–Vie 09:00–20:00" />
+              </div>
+              <div class="form-group form-full">
+                <label>Descripción breve</label>
+                <textarea id="q-desc" placeholder="Una línea que describe el negocio..."></textarea>
+              </div>
+              <div class="form-group form-full">
+                <label>Emoji del local</label>
+                <div class="emoji-picker" id="q-emoji-picker">
+                  🍕🍔🌮☕🍰🍣🥗🍜🛍️👗👟💊🏥📱💻🛒🌿💈🎸📚🏋️🐾🎨✂️
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="quickAdd()">Agregar local</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── RECLAMOS ── -->
+    <div id="page-claims" class="page">
+      <div class="page-header">
+        <div class="page-title">Reclamos de locales</div>
+        <div class="page-sub">Genera códigos para que los dueños reclamen su local en la app</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Generar código de reclamo</span></div>
+          <div style="padding:20px">
+            <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+              Selecciona un local sin reclamar y genera un código único de 6 caracteres que le envías al dueño del negocio.
+              Al ingresar ese código en la app, el local queda vinculado a su cuenta.
+            </p>
+            <div class="form-group" style="margin-bottom:14px">
+              <label>Seleccionar local</label>
+              <select id="claim-store-select">
+                <option value="">— Elige un local —</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" style="width:100%" onclick="generateClaim()">Generar código</button>
+            <div id="claim-result" style="display:none;margin-top:16px">
+              <div class="section-divider">Código generado</div>
+              <div class="claim-code" id="claim-code-display">------</div>
+              <p style="font-size:11px;color:var(--muted);text-align:center">
+                Envía este código al dueño del local.<br/>
+                Lo ingresa en la app al registrarse como dueño.
+              </p>
+              <button class="btn btn-outline btn-sm" style="width:100%;margin-top:10px" onclick="copyClaim()">Copiar código</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Códigos activos</span></div>
+          <table>
+            <thead><tr><th>Local</th><th>Código</th><th>Estado</th></tr></thead>
+            <tbody id="claims-table"></tbody>
+          </table>
+          <div id="claims-empty" class="empty" style="display:none">
+            <div class="big">🔑</div>
+            <p>No hay códigos generados aún.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── MODAL: Agregar/Editar local ── -->
+<div class="modal-overlay" id="store-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Nuevo local</span>
+      <button class="modal-close" onclick="closeModal('store-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="store-alert" class="alert"></div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Nombre del local *</label>
+          <input id="s-name" placeholder="Ej: Café Tostado" />
+        </div>
+        <div class="form-group">
+          <label>Categoría *</label>
+          <select id="s-cat">
+            <option>Restaurante</option>
+            <option>Cafetería</option>
+            <option>Moda</option>
+            <option>Calzado</option>
+            <option>Tecnología</option>
+            <option>Salud</option>
+            <option>Supermercado</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Ciudad *</label>
+          <input id="s-city" placeholder="Ej: Temuco" />
+        </div>
+        <div class="form-group form-full">
+          <label>Dirección</label>
+          <input id="s-address" placeholder="Ej: Av. Alemania 0700" />
+        </div>
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input id="s-phone" placeholder="+56 9 ..." />
+        </div>
+        <div class="form-group">
+          <label>Horario semana</label>
+          <input id="s-sched-w" placeholder="Lun–Vie 09:00–20:00" />
+        </div>
+        <div class="form-group">
+          <label>Horario fin de semana</label>
+          <input id="s-sched-e" placeholder="Sáb 10:00–18:00" />
+        </div>
+        <div class="form-group form-full">
+          <label>Descripción</label>
+          <textarea id="s-desc" placeholder="Una o dos líneas sobre el negocio..."></textarea>
+        </div>
+        <div class="form-group form-full">
+          <label>Emoji del local</label>
+          <div class="emoji-picker" id="s-emoji-picker"></div>
+          <input type="hidden" id="s-emoji" value="🏪" />
+        </div>
+        <div class="form-group form-full">
+          <label>Color de fondo de tarjeta</label>
+          <div class="color-picker" id="s-color-picker"></div>
+          <input type="hidden" id="s-color" value="#EEEDFE" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('store-modal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveStore()">Guardar local</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Nueva promo ── -->
+<div class="modal-overlay" id="promo-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Nueva promoción</span>
+      <button class="modal-close" onclick="closeModal('promo-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="promo-alert" class="alert"></div>
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Local *</label>
+          <select id="p-store"></select>
+        </div>
+        <div class="form-group form-full">
+          <label>Título de la promo *</label>
+          <input id="p-title" placeholder="Ej: 2x1 en café americano" />
+        </div>
+        <div class="form-group form-full">
+          <label>Descripción</label>
+          <textarea id="p-desc" placeholder="Detalle de la promoción..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Etiqueta / tag</label>
+          <input id="p-tag" placeholder="Ej: 🔥 Solo hoy" />
+        </div>
+        <div class="form-group">
+          <label>Fecha de vencimiento</label>
+          <input id="p-exp" type="date" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('promo-modal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePromo()">Publicar promo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Confirmar eliminar ── -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title">¿Eliminar local?</span>
+      <button class="modal-close" onclick="closeModal('delete-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);line-height:1.7">
+        Esto eliminará el local <strong id="delete-name"></strong> y todas sus promociones de la plataforma. Esta acción no se puede deshacer.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('delete-modal')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// ESTADO LOCAL (simula SQLite — en producción conectas
+// esto a tu backend Node/Express + better-sqlite3)
+// ═══════════════════════════════════════════════════════
+let stores = JSON.parse(localStorage.getItem('ds_stores') || '[]');
+let promos = JSON.parse(localStorage.getItem('ds_promos') || '[]');
+let claims = JSON.parse(localStorage.getItem('ds_claims') || '[]');
+let nextStoreId = parseInt(localStorage.getItem('ds_next_store') || '1');
+let nextPromoId = parseInt(localStorage.getItem('ds_next_promo') || '1');
+
+const EMOJIS = ['🍕','🍔','🌮','🌯','🥗','🍣','🍜','🍰','☕','🧃','🍺','🥩','🌿','🛍️','👗','👟','💊','🏥','📱','💻','🎸','📚','🏋️','🐾','🎨','✂️','💈','🛒','🏪','🎉'];
+const COLORS = ['#EEEDFE','#E1F5EE','#FAEEDA','#FAECE7','#E6F1FB','#FBEAF0','#EAF3DE','#E8F0FF','#FFF3E0','#F3E5F5'];
+
+function save() {
+  localStorage.setItem('ds_stores', JSON.stringify(stores));
+  localStorage.setItem('ds_promos', JSON.stringify(promos));
+  localStorage.setItem('ds_claims', JSON.stringify(claims));
+  localStorage.setItem('ds_next_store', nextStoreId);
+  localStorage.setItem('ds_next_promo', nextPromoId);
+}
+
+function downloadAppJSON() {
+  const payload = stores.map(s => ({
+    name: s.name || '',
+    category: s.category || 'Local',
+    description: s.desc || null,
+    address: s.address || null,
+    phone: s.phone || null,
+    schedule_weekday: s.schedWeek || null,
+    schedule_weekend: s.schedWeekend || null,
+    emoji: s.emoji || '🏪',
+    banner_color: s.color || '#EEEDFE',
+    city: s.city || null,
+    country: null,
+    lat: null,
+    lng: null,
+  }));
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'datashopy_catalog.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('JSON descargado ✓');
+}
+
+// ── Navegación ─────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.toLowerCase().includes(id === 'dashboard' ? 'dashboard' :
+        id === 'stores' ? 'locales' :
+        id === 'promos' ? 'promo' :
+        id === 'import' ? 'import' : 'reclam')) {
+      n.classList.add('active');
+    }
+  });
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'stores') renderStoresTable();
+  if (id === 'promos') renderPromosTable();
+  if (id === 'claims') renderClaimsPage();
+}
+
+// ── Dashboard ──────────────────────────────────────────
+function renderDashboard() {
+  const claimed = stores.filter(s => s.claimed).length;
+  document.getElementById('stat-total').textContent = stores.length;
+  document.getElementById('stat-claimed').textContent = claimed;
+  document.getElementById('stat-unclaimed').textContent = stores.length - claimed;
+  document.getElementById('stat-promos').textContent = promos.filter(p => p.active).length;
+
+  const tbody = document.getElementById('dash-recent');
+  const recent = [...stores].reverse().slice(0, 6);
+  if (recent.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;font-size:12px">Sin locales aún</td></tr>';
+    return;
+  }
+  tbody.innerHTML = recent.map(s => `
+    <tr>
+      <td><div class="store-name-cell">
+        <div class="store-emoji" style="background:${s.color}">${s.emoji}</div>
+        <div><div class="store-name">${s.name}</div><div class="store-cat">${s.category}</div></div>
+      </div></td>
+      <td style="font-size:12px">${s.city || '—'}</td>
+      <td style="font-size:12px">${s.city || '—'}</td>
+      <td><span class="badge ${s.claimed ? 'badge-claimed' : 'badge-unclaimed'}">${s.claimed ? 'Reclamado' : 'Sin reclamar'}</span></td>
+      <td><span class="badge badge-promo">${promos.filter(p=>p.storeId===s.id && p.active).length} promos</span></td>
+    </tr>`).join('');
+}
+
+// ── Tabla de locales ───────────────────────────────────
+function renderStoresTable() {
+  const search = document.getElementById('store-search')?.value.toLowerCase() || '';
+  const catF = document.getElementById('store-cat-filter')?.value || '';
+  let filtered = stores.filter(s =>
+    (!search || s.name.toLowerCase().includes(search) || (s.city||'').toLowerCase().includes(search)) &&
+    (!catF || s.category === catF)
+  );
+  const tbody = document.getElementById('stores-table');
+  const empty = document.getElementById('stores-empty');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(s => `
+    <tr>
+      <td><div class="store-name-cell">
+        <div class="store-emoji" style="background:${s.color}">${s.emoji}</div>
+        <div><div class="store-name">${s.name}</div><div class="store-cat">${s.category}</div></div>
+      </div></td>
+      <td style="font-size:12px">${s.city||'—'}</td>
+      <td style="font-size:12px">${s.phone||'—'}</td>
+      <td><span class="badge ${s.claimed ? 'badge-claimed' : 'badge-unclaimed'}">${s.claimed ? 'Reclamado' : 'Sin reclamar'}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="editStore(${s.id})">Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDeleteModal(${s.id})">Eliminar</button>
+      </td>
+    </tr>`).join('');
+}
+
+// ── Tabla de promos ────────────────────────────────────
+function renderPromosTable() {
+  const tbody = document.getElementById('promos-table');
+  const empty = document.getElementById('promos-empty');
+  if (promos.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = promos.map(p => {
+    const store = stores.find(s => s.id === p.storeId);
+    return `<tr>
+      <td><div class="store-name" style="font-size:12px">${p.title}</div><div class="store-cat">${p.tag||''}</div></td>
+      <td style="font-size:12px">${store ? store.name : '—'}</td>
+      <td style="font-size:12px">${p.expires||'Sin vencimiento'}</td>
+      <td><span class="badge ${p.active ? 'badge-claimed' : 'badge-unclaimed'}">${p.active ? 'Activa' : 'Inactiva'}</span></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="togglePromo(${p.id})">${p.active ? 'Pausar' : 'Activar'}</button>
+        <button class="btn btn-ghost btn-sm" onclick="deletePromo(${p.id})">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Modal local ────────────────────────────────────────
+let editingId = null;
+const MODAL_EMOJIS = '🍕🍔🌮🌯🥗🍣🍜🍰☕🧃🍺🥩🌿🛍️👗👟💊🏥📱💻🎸📚🏋️🐾🎨✂️💈🛒🏪🎉'.split('');
+
+function buildEmojiPicker(containerId, hiddenId) {
+  const c = document.getElementById(containerId);
+  const h = document.getElementById(hiddenId);
+  c.innerHTML = MODAL_EMOJIS.map(e => `<div class="emoji-opt ${h.value===e?'selected':''}" onclick="selectEmoji('${containerId}','${hiddenId}','${e}')">${e}</div>`).join('');
+}
+function selectEmoji(containerId, hiddenId, emoji) {
+  document.getElementById(hiddenId).value = emoji;
+  buildEmojiPicker(containerId, hiddenId);
+}
+function buildColorPicker() {
+  const c = document.getElementById('s-color-picker');
+  const h = document.getElementById('s-color');
+  c.innerHTML = COLORS.map(col => `<div class="color-opt ${h.value===col?'selected':''}" style="background:${col}" onclick="selectColor('${col}')"></div>`).join('');
+}
+function selectColor(col) {
+  document.getElementById('s-color').value = col;
+  buildColorPicker();
+}
+
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Nuevo local';
+  ['s-name','s-address','s-phone','s-sched-w','s-sched-e','s-desc','s-city'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('s-emoji').value = '🏪';
+  document.getElementById('s-color').value = '#EEEDFE';
+  buildEmojiPicker('s-emoji-picker','s-emoji');
+  buildColorPicker();
+  showAlert('store-alert','','');
+  openModal('store-modal');
+}
+
+function editStore(id) {
+  const s = stores.find(x => x.id === id);
+  if (!s) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = 'Editar local';
+  document.getElementById('s-name').value = s.name;
+  document.getElementById('s-cat').value = s.category;
+  document.getElementById('s-city').value = s.city||'';
+  document.getElementById('s-address').value = s.address||'';
+  document.getElementById('s-phone').value = s.phone||'';
+  document.getElementById('s-sched-w').value = s.schedWeek||'';
+  document.getElementById('s-sched-e').value = s.schedWeekend||'';
+  document.getElementById('s-desc').value = s.desc||'';
+  document.getElementById('s-emoji').value = s.emoji||'🏪';
+  document.getElementById('s-color').value = s.color||'#EEEDFE';
+  buildEmojiPicker('s-emoji-picker','s-emoji');
+  buildColorPicker();
+  showAlert('store-alert','','');
+  openModal('store-modal');
+}
+
+function saveStore() {
+  const name = document.getElementById('s-name').value.trim();
+  const city = document.getElementById('s-city').value.trim();
+  if (!name) { showAlert('store-alert','El nombre es obligatorio.','error'); return; }
+  if (!city) { showAlert('store-alert','La ciudad es obligatoria.','error'); return; }
+  const data = {
+    name, city,
+    category: document.getElementById('s-cat').value,
+    address: document.getElementById('s-address').value.trim(),
+    phone: document.getElementById('s-phone').value.trim(),
+    schedWeek: document.getElementById('s-sched-w').value.trim(),
+    schedWeekend: document.getElementById('s-sched-e').value.trim(),
+    desc: document.getElementById('s-desc').value.trim(),
+    emoji: document.getElementById('s-emoji').value,
+    color: document.getElementById('s-color').value,
+    claimed: false,
+  };
+  if (editingId) {
+    const idx = stores.findIndex(s => s.id === editingId);
+    stores[idx] = { ...stores[idx], ...data };
+  } else {
+    data.id = nextStoreId++;
+    stores.push(data);
+  }
+  save();
+  closeModal('store-modal');
+  renderStoresTable();
+  renderDashboard();
+  showToast(editingId ? 'Local actualizado ✓' : 'Local agregado ✓');
+}
+
+// ── Eliminar local ─────────────────────────────────────
+let deletingId = null;
+function openDeleteModal(id) {
+  deletingId = id;
+  const s = stores.find(x => x.id === id);
+  document.getElementById('delete-name').textContent = s?.name || '';
+  openModal('delete-modal');
+}
+function confirmDelete() {
+  stores = stores.filter(s => s.id !== deletingId);
+  promos = promos.filter(p => p.storeId !== deletingId);
+  save();
+  closeModal('delete-modal');
+  renderStoresTable();
+  renderDashboard();
+  showToast('Local eliminado');
+}
+
+// ── Promos ─────────────────────────────────────────────
+function openPromoModal() {
+  const sel = document.getElementById('p-store');
+  sel.innerHTML = stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  ['p-title','p-desc','p-tag','p-exp'].forEach(id => document.getElementById(id).value='');
+  showAlert('promo-alert','','');
+  openModal('promo-modal');
+}
+function savePromo() {
+  const title = document.getElementById('p-title').value.trim();
+  if (!title) { showAlert('promo-alert','El título es obligatorio.','error'); return; }
+  promos.push({
+    id: nextPromoId++,
+    storeId: parseInt(document.getElementById('p-store').value),
+    title,
+    desc: document.getElementById('p-desc').value.trim(),
+    tag: document.getElementById('p-tag').value.trim(),
+    expires: document.getElementById('p-exp').value,
+    active: true,
+  });
+  save();
+  closeModal('promo-modal');
+  renderPromosTable();
+  showToast('Promoción publicada ✓');
+}
+function togglePromo(id) {
+  const p = promos.find(x => x.id === id);
+  if (p) { p.active = !p.active; save(); renderPromosTable(); }
+}
+function deletePromo(id) {
+  promos = promos.filter(p => p.id !== id);
+  save(); renderPromosTable();
+}
+
+// ── Claims ─────────────────────────────────────────────
+function renderClaimsPage() {
+  const sel = document.getElementById('claim-store-select');
+  const unclaimed = stores.filter(s => !s.claimed);
+  sel.innerHTML = '<option value="">— Elige un local —</option>' +
+    unclaimed.map(s => `<option value="${s.id}">${s.name} · ${s.city||''}</option>`).join('');
+  document.getElementById('claim-result').style.display = 'none';
+  renderClaimsTable();
+}
+function generateClaim() {
+  const storeId = parseInt(document.getElementById('claim-store-select').value);
+  if (!storeId) { showToast('Selecciona un local primero'); return; }
+  const code = Math.random().toString(36).substring(2,8).toUpperCase();
+  claims.push({ storeId, code, used: false, created: new Date().toLocaleDateString('es-CL') });
+  save();
+  document.getElementById('claim-code-display').textContent = code;
+  document.getElementById('claim-result').style.display = 'block';
+  renderClaimsTable();
+}
+function copyClaim() {
+  navigator.clipboard.writeText(document.getElementById('claim-code-display').textContent);
+  showToast('Código copiado ✓');
+}
+function renderClaimsTable() {
+  const tbody = document.getElementById('claims-table');
+  const empty = document.getElementById('claims-empty');
+  if (claims.length === 0) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = claims.map(c => {
+    const s = stores.find(x => x.id === c.storeId);
+    return `<tr>
+      <td style="font-size:12px">${s?.name||'Local eliminado'}</td>
+      <td><span class="claim-code" style="font-size:14px;padding:4px 10px">${c.code}</span></td>
+      <td><span class="badge ${c.used ? 'badge-claimed' : 'badge-unclaimed'}">${c.used ? 'Usado' : 'Pendiente'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── CSV ────────────────────────────────────────────────
+function downloadTemplate() {
+  const headers = 'nombre,categoria,ciudad,direccion,telefono,horario_semana,horario_finde,descripcion,emoji,color_fondo';
+  const example = 'La Pizzería del Centro,Restaurante,Temuco,Av. Alemania 0700,+56945678901,Lun-Vie 12:00-23:00,Sáb-Dom 13:00-21:00,Pizza artesanal al horno de leña,🍕,#EEEDFE';
+  const blob = new Blob([headers + '\n' + example], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'datashopy_plantilla.csv'; a.click();
+}
+function handleDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) processCSV(file);
+}
+function handleCSV(input) {
+  if (input.files[0]) processCSV(input.files[0]);
+}
+function processCSV(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    const log = document.getElementById('csv-log');
+    const bar = document.getElementById('csv-progress');
+    const fill = document.getElementById('csv-fill');
+    log.style.display = 'block'; bar.style.display = 'block';
+    log.innerHTML = '';
+    let added = 0;
+    lines.slice(1).forEach((line, i) => {
+      const [name, category, city, address, phone, schedWeek, schedWeekend, desc, emoji, color] = line.split(',').map(v => v?.trim());
+      if (!name) return;
+      stores.push({ id: nextStoreId++, name, category: category||'Otro', city, address, phone, schedWeek, schedWeekend, desc, emoji: emoji||'🏪', color: color||'#EEEDFE', claimed: false });
+      added++;
+      const pct = Math.round(((i+1)/(lines.length-1))*100);
+      fill.style.width = pct + '%';
+      log.innerHTML += `<div>✓ ${name} — ${city||'sin ciudad'}</div>`;
+      log.scrollTop = log.scrollHeight;
+    });
+    save();
+    log.innerHTML += `<div style="margin-top:8px;color:#fff">─── ${added} locales importados ───</div>`;
+    renderDashboard();
+    showToast(`${added} locales importados ✓`);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── Carga rápida ───────────────────────────────────────
+let qEmoji = '🏪';
+(function buildQuickEmoji() {
+  // built in the HTML template area above, skip here
+})();
+
+function quickAdd() {
+  const name = document.getElementById('q-name').value.trim();
+  const city = document.getElementById('q-city').value.trim();
+  if (!name || !city) { showAlert('quick-alert','Nombre y ciudad son obligatorios.','error'); return; }
+  stores.push({
+    id: nextStoreId++,
+    name, city,
+    category: document.getElementById('q-cat').value,
+    address: document.getElementById('q-address').value.trim(),
+    phone: document.getElementById('q-phone').value.trim(),
+    schedWeek: document.getElementById('q-sched').value.trim(),
+    desc: document.getElementById('q-desc').value.trim(),
+    emoji: qEmoji,
+    color: '#EEEDFE',
+    claimed: false,
+  });
+  save();
+  ['q-name','q-city','q-address','q-phone','q-sched','q-desc'].forEach(id => document.getElementById(id).value='');
+  showAlert('quick-alert', `"${name}" agregado correctamente.`, 'success');
+  renderDashboard();
+  showToast('Local agregado ✓');
+}
+
+// Init quick emoji picker
+document.addEventListener('DOMContentLoaded', () => {
+  const picker = document.getElementById('q-emoji-picker');
+  picker.innerHTML = MODAL_EMOJIS.map(e =>
+    `<div class="emoji-opt ${e==='🏪'?'selected':''}" onclick="qEmoji='${e}';document.querySelectorAll('#q-emoji-picker .emoji-opt').forEach(x=>x.classList.remove('selected'));this.classList.add('selected')">${e}</div>`
+  ).join('');
+});
+
+// ── Helpers ────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.className = 'alert';
+  if (type) el.classList.add(type, 'show');
+}
+
+let toastTimer;
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:28px;right:28px;background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:6px;font-size:12px;z-index:999;opacity:0;transition:opacity .2s;font-family:DM Mono,monospace';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.style.opacity = '0', 2800);
+}
+
+// Close modal clicking outside
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// Init
+renderDashboard();
+</script>
+</body>
+</html>

@@ -5,27 +5,53 @@ import {
   Platform, Alert, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { loginUser } from '../../database/db';
 import { colors, radius, spacing } from '../../constants/theme';
+import { supabase } from '../../supabase/client';
+import { getProfile, upsertProfile } from '../../supabase/profile';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const handleLogin = () => {
+ 
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Campos vacíos', 'Ingresa tu correo y contraseña.');
       return;
     }
     setLoading(true);
-    const user = loginUser(email.trim().toLowerCase(), password);
-    setLoading(false);
-    if (user) {
-      navigation.replace('ClientApp', { user });
-    } else {
-      Alert.alert('Error', 'Correo o contraseña incorrectos.');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) throw error;
+      const u = data?.user;
+      if (!u?.id) throw new Error('No se pudo iniciar sesión.');
+      let profile = null;
+      try {
+        profile = await getProfile(u.id);
+      } catch {}
+      if (!profile) {
+        try {
+          profile = await upsertProfile({
+            id: u.id,
+            role: 'customer',
+            name: u.user_metadata?.name || null,
+          });
+        } catch {}
+      }
+      const nextUser = {
+        id: u.id,
+        name: profile?.name || u.user_metadata?.name || 'Usuario',
+        email: u.email || '',
+      };
+      navigation.replace('ClientApp', { user: nextUser });
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Correo o contraseña incorrectos.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,10 +61,7 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Logo */}
           <View style={styles.logoArea}>
@@ -99,12 +122,13 @@ export default function LoginScreen({ navigation }) {
               <Text style={styles.linkText}>¿Tienes un local? <Text style={styles.linkAccent}>Inicia sesión aquí</Text></Text>
             </TouchableOpacity>
 
-            {/* Acceso rápido demo */}
+            {/* Acceso rápido demo 
             <View style={styles.demoBox}>
               <Text style={styles.demoTitle}>Demo rápido</Text>
-              <Text style={styles.demoText}>Email: maria@mail.com</Text>
-              <Text style={styles.demoText}>Password: demo1234</Text>
+              <Text style={styles.demoText}>Las credenciales demo locales ya no aplican.</Text>
+              <Text style={styles.demoText}>Crea tu cuenta en “Regístrate aquí”.</Text>
             </View>
+            */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

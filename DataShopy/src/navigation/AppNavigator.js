@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../constants/theme';
 
 // Auth
@@ -20,6 +21,10 @@ import ProfileScreen from '../screens/client/ProfileScreen';
 import OwnerDashScreen from '../screens/owner/OwnerDashScreen';
 import ManagePromosScreen from '../screens/owner/ManagePromosScreen';
 import EditStoreScreen from '../screens/owner/EditStoreScreen';
+import ClaimStoreScreen from '../screens/owner/ClaimStoreScreen';
+
+import AdminLoginScreen from '../screens/admin/AdminLoginScreen';
+import AdminClaimsScreen from '../screens/admin/AdminClaimsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -27,6 +32,7 @@ const Tab = createBottomTabNavigator();
 // ─── Pestañas del cliente ─────────────────────────────────────────────────────
 function ClientTabs({ route }) {
   const user = route.params?.user;
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -36,9 +42,9 @@ function ClientTabs({ route }) {
         tabBarStyle: {
           borderTopWidth: 0.5,
           borderTopColor: colors.border,
-          paddingBottom: 6,
+          paddingBottom: 6 + insets.bottom,
           paddingTop: 6,
-          height: 60,
+          height: 60 + insets.bottom,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         tabBarIcon: ({ focused, color, size }) => {
@@ -80,6 +86,7 @@ function OwnerStackScreen({ route }) {
       <OwnerStack.Screen name="OwnerDash" component={OwnerDashScreen} initialParams={{ owner }} />
       <OwnerStack.Screen name="ManagePromos" component={ManagePromosScreen} />
       <OwnerStack.Screen name="EditStore" component={EditStoreScreen} />
+      <OwnerStack.Screen name="ClaimStore" component={ClaimStoreScreen} />
     </OwnerStack.Navigator>
   );
 }
@@ -93,6 +100,8 @@ export default function AppNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="OwnerLogin" component={OwnerLoginScreen} />
+        <Stack.Screen name="AdminLogin" component={AdminLoginScreen} />
+        <Stack.Screen name="AdminClaims" component={AdminClaimsScreen} />
         {/* Cliente (con tabs) */}
         <Stack.Screen name="ClientApp" component={ClientTabs} />
         {/* Dueño */}

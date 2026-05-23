@@ -4,8 +4,9 @@ import {
   SafeAreaView, KeyboardAvoidingView, Platform, Alert, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { registerUser } from '../../database/db';
 import { colors, radius } from '../../constants/theme';
+import { supabase } from '../../supabase/client';
+import { upsertProfile } from '../../supabase/profile';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -13,7 +14,7 @@ export default function RegisterScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!name || !email || !password || !confirm) {
       Alert.alert('Campos vacíos', 'Completa todos los campos.');
       return;
@@ -26,13 +27,30 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
-    const result = registerUser(name.trim(), email.trim().toLowerCase(), password);
-    if (result.success) {
-      Alert.alert('¡Listo!', 'Tu cuenta fue creada. Ya puedes ingresar.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    } else {
-      Alert.alert('Error', result.error);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: { data: { name: name.trim() } },
+      });
+      if (error) throw error;
+      const u = data?.user;
+      if (u?.id) {
+        try {
+          await upsertProfile({ id: u.id, role: 'customer', name: name.trim() });
+        } catch {}
+      }
+      if (!data?.session) {
+        Alert.alert(
+          'Cuenta creada',
+          'Revisa tu correo para confirmar la cuenta y luego inicia sesión. Si desactivas la confirmación por email en Supabase, podrás entrar al instante.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+        return;
+      }
+      Alert.alert('¡Listo!', 'Tu cuenta fue creada. Ya puedes ingresar.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'No se pudo crear la cuenta.');
     }
   };
 

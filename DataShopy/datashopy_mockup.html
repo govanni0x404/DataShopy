@@ -1,0 +1,515 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--font-sans)}
+.phone{width:375px;height:720px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:40px;overflow:hidden;position:relative;margin:0 auto}
+.screen{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;display:none;flex-direction:column;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen.active{display:flex}
+.stage{background:var(--color-background-secondary);padding:1.5rem 1rem;display:flex;align-items:center;justify-content:center;min-height:780px}
+.nav-bar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);position:sticky;top:0;z-index:10}
+.nav-title{font-size:17px;font-weight:500;color:var(--color-text-primary)}
+.back-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--color-text-secondary);font-size:20px}
+.screen-nav{display:flex;justify-content:space-around;padding:10px 0 14px;background:var(--color-background-primary);border-top:0.5px solid var(--color-border-tertiary);position:sticky;bottom:0}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 12px;color:var(--color-text-tertiary);font-size:10px}
+.nav-item.active{color:#534AB7}
+.nav-item i{font-size:22px}
+.content{flex:1;padding:0}
+
+.logo-area{display:flex;flex-direction:column;align-items:center;padding:48px 32px 24px}
+.logo-circle{width:72px;height:72px;background:#EEEDFE;border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.logo-circle i{font-size:36px;color:#534AB7}
+.app-name{font-size:26px;font-weight:500;color:var(--color-text-primary)}
+.app-sub{font-size:13px;color:var(--color-text-secondary);margin-top:4px}
+
+.form-area{padding:0 24px}
+.field{margin-bottom:14px}
+.field label{font-size:12px;color:var(--color-text-secondary);margin-bottom:6px;display:block}
+.field input{width:100%;padding:10px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-primary);color:var(--color-text-primary)}
+.btn-primary{width:100%;padding:13px;background:#534AB7;color:#fff;border:none;border-radius:var(--border-radius-md);font-size:15px;font-weight:500;cursor:pointer;margin-bottom:12px}
+.btn-secondary{width:100%;padding:12px;background:transparent;color:#534AB7;border:0.5px solid #534AB7;border-radius:var(--border-radius-md);font-size:14px;cursor:pointer}
+.divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--color-text-tertiary);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:0.5px;background:var(--color-border-tertiary)}
+.link-text{text-align:center;font-size:13px;color:var(--color-text-secondary);cursor:pointer;margin-top:8px}
+.link-text span{color:#534AB7}
+
+.search-bar{padding:12px 16px;position:sticky;top:56px;background:var(--color-background-primary);z-index:9;border-bottom:0.5px solid var(--color-border-tertiary)}
+.search-input{display:flex;align-items:center;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 12px;gap:8px}
+.search-input i{color:var(--color-text-tertiary);font-size:16px}
+.search-input span{font-size:14px;color:var(--color-text-tertiary)}
+
+.cats{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none}
+.cat{padding:6px 14px;border-radius:20px;font-size:13px;white-space:nowrap;cursor:pointer;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);background:var(--color-background-primary)}
+.cat.active{background:#534AB7;color:#fff;border-color:#534AB7}
+
+.stores-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px 16px 16px}
+.store-card{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);overflow:hidden;cursor:pointer;transition:transform .1s}
+.store-card:active{transform:scale(0.97)}
+.store-banner{height:80px;display:flex;align-items:center;justify-content:center;font-size:32px}
+.store-info{padding:10px}
+.store-name{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px}
+.store-cat{font-size:11px;color:var(--color-text-tertiary)}
+.store-badge{display:inline-block;background:#EEEDFE;color:#534AB7;font-size:10px;padding:2px 7px;border-radius:20px;margin-top:4px}
+
+.detail-hero{height:180px;display:flex;align-items:center;justify-content:center;font-size:64px;position:relative}
+.detail-body{padding:16px}
+.detail-name{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.detail-cat-badge{display:inline-block;background:#EEEDFE;color:#534AB7;font-size:12px;padding:4px 10px;border-radius:20px;margin:6px 0 12px}
+.detail-desc{font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:16px}
+
+.info-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.info-row i{font-size:18px;color:#534AB7;width:20px}
+.info-text{font-size:13px;color:var(--color-text-primary)}
+
+.section-title{font-size:15px;font-weight:500;color:var(--color-text-primary);margin:18px 0 10px}
+.promo-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;margin-bottom:10px;border-left:3px solid #534AB7}
+.promo-tag{font-size:11px;color:#534AB7;font-weight:500;margin-bottom:4px}
+.promo-title{font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px}
+.promo-desc{font-size:12px;color:var(--color-text-secondary)}
+.promo-exp{font-size:11px;color:var(--color-text-tertiary);margin-top:6px}
+
+.dash-header{background:#534AB7;padding:24px 20px 20px;color:#fff}
+.dash-greeting{font-size:13px;opacity:.8;margin-bottom:4px}
+.dash-store{font-size:20px;font-weight:500}
+.dash-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px}
+.stat-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);padding:12px;border:0.5px solid var(--color-border-tertiary)}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
+.stat-value{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.stat-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+
+.menu-item{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer}
+.menu-icon{width:36px;height:36px;background:#EEEDFE;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center}
+.menu-icon i{font-size:18px;color:#534AB7}
+.menu-label{font-size:14px;color:var(--color-text-primary);flex:1}
+.menu-arrow{color:var(--color-text-tertiary);font-size:16px}
+
+.promo-edit-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);padding:12px;margin-bottom:10px}
+.promo-edit-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.promo-edit-title{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.promo-actions{display:flex;gap:8px}
+.promo-act-btn{width:28px;height:28px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);display:flex;align-items:center;justify-content:center;background:none;cursor:pointer}
+.promo-act-btn i{font-size:14px;color:var(--color-text-secondary)}
+.promo-edit-desc{font-size:12px;color:var(--color-text-secondary)}
+
+.add-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;background:#534AB7;color:#fff;border:none;border-radius:var(--border-radius-md);font-size:14px;font-weight:500;cursor:pointer;margin-top:8px}
+.add-btn i{font-size:18px}
+
+.tab-bar{display:flex;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:0}
+.tab{flex:1;text-align:center;padding:12px 4px;font-size:13px;color:var(--color-text-secondary);cursor:pointer;border-bottom:2px solid transparent}
+.tab.active{color:#534AB7;border-bottom-color:#534AB7}
+
+.notif-item{display:flex;gap:12px;padding:14px 20px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.notif-dot{width:10px;height:10px;background:#534AB7;border-radius:50%;margin-top:4px;flex-shrink:0}
+.notif-body{flex:1}
+.notif-title{font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.notif-desc{font-size:12px;color:var(--color-text-secondary)}
+.notif-time{font-size:11px;color:var(--color-text-tertiary);margin-top:3px}
+
+.empty-notif{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--color-text-tertiary)}
+.empty-notif i{font-size:48px;margin-bottom:12px;opacity:.4}
+.empty-notif p{font-size:14px}
+
+.profile-section{padding:20px 20px 0}
+.profile-header{display:flex;gap:14px;align-items:center;margin-bottom:20px}
+.avatar{width:60px;height:60px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:500;color:#534AB7;flex-shrink:0}
+.profile-name{font-size:17px;font-weight:500;color:var(--color-text-primary)}
+.profile-email{font-size:13px;color:var(--color-text-secondary)}
+.profile-menu-section{margin-top:8px}
+.profile-section-label{font-size:11px;color:var(--color-text-tertiary);padding:8px 20px 4px;text-transform:uppercase;letter-spacing:.05em}
+
+.map-placeholder{background:var(--color-background-secondary);border-radius:var(--border-radius-md);height:140px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;margin-bottom:16px;border:0.5px solid var(--color-border-tertiary)}
+.map-placeholder i{font-size:36px;color:#534AB7}
+.map-placeholder span{font-size:13px;color:var(--color-text-secondary)}
+</style>
+
+<h2 class="sr-only">DataShopy — prototipo navegable de app de directorio de locales</h2>
+
+<div class="stage">
+  <div>
+    <div style="text-align:center;margin-bottom:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button onclick="goto('login')" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);font-size:12px;cursor:pointer;color:var(--color-text-primary)">Vista cliente</button>
+      <button onclick="goto('owner-login')" style="padding:6px 14px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);font-size:12px;cursor:pointer;color:var(--color-text-primary)">Vista dueño</button>
+    </div>
+    <div class="phone">
+
+      <!-- LOGIN CLIENTE -->
+      <div id="s-login" class="screen active" style="flex-direction:column">
+        <div class="logo-area">
+          <div class="logo-circle"><i class="ti ti-building-store" aria-hidden="true"></i></div>
+          <div class="app-name">DataShopy</div>
+          <div class="app-sub">Descubre los mejores locales</div>
+        </div>
+        <div class="form-area">
+          <div class="field"><label>Correo electrónico</label><input type="email" value="usuario@mail.com" /></div>
+          <div class="field"><label>Contraseña</label><input type="password" value="••••••••" /></div>
+          <button class="btn-primary" onclick="goto('home')">Ingresar</button>
+          <div class="divider">o</div>
+          <button class="btn-secondary" onclick="goto('home')">Continuar como invitado</button>
+          <p class="link-text" onclick="goto('owner-login')">¿Tienes un local? <span>Inicia sesión aquí</span></p>
+        </div>
+      </div>
+
+      <!-- LOGIN DUEÑO -->
+      <div id="s-owner-login" class="screen" style="flex-direction:column">
+        <div class="logo-area">
+          <div class="logo-circle"><i class="ti ti-shield-check" aria-hidden="true"></i></div>
+          <div class="app-name" style="font-size:22px">Panel de tienda</div>
+          <div class="app-sub">Administra tu local en DataShopy</div>
+        </div>
+        <div class="form-area">
+          <div class="field"><label>Correo del negocio</label><input type="email" value="tienda@mail.com" /></div>
+          <div class="field"><label>Contraseña</label><input type="password" value="••••••••" /></div>
+          <button class="btn-primary" onclick="goto('owner-dash')">Entrar al panel</button>
+          <div class="divider">o</div>
+          <button class="btn-secondary">Registrar mi tienda</button>
+          <p class="link-text" onclick="goto('login')">¿Eres cliente? <span>Ingresar aquí</span></p>
+        </div>
+      </div>
+
+      <!-- HOME CLIENTE -->
+      <div id="s-home" class="screen" style="flex-direction:column">
+        <div class="nav-bar">
+          <div class="nav-title">DataShopy</div>
+          <div style="display:flex;gap:8px">
+            <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="goto('notif')"><i class="ti ti-bell" style="font-size:20px;color:var(--color-text-secondary)" aria-hidden="true"></i></div>
+          </div>
+        </div>
+        <div class="search-bar">
+          <div class="search-input"><i class="ti ti-search" aria-hidden="true"></i><span>Buscar locales, categorías...</span></div>
+        </div>
+        <div class="content">
+          <div class="cats">
+            <div class="cat active">Todos</div>
+            <div class="cat">Comida</div>
+            <div class="cat">Moda</div>
+            <div class="cat">Tecnología</div>
+            <div class="cat">Salud</div>
+          </div>
+          <div style="padding:0 16px 6px"><p style="font-size:13px;color:var(--color-text-secondary)">24 locales en Santiago</p></div>
+          <div class="stores-grid">
+            <div class="store-card" onclick="goto('detail')">
+              <div class="store-banner" style="background:#EEEDFE">🍕</div>
+              <div class="store-info">
+                <div class="store-name">La Pizzería</div>
+                <div class="store-cat">Comida italiana</div>
+                <div class="store-badge">3 promos hoy</div>
+              </div>
+            </div>
+            <div class="store-card" onclick="goto('detail2')">
+              <div class="store-banner" style="background:#E1F5EE">👟</div>
+              <div class="store-info">
+                <div class="store-name">StepUp Shoes</div>
+                <div class="store-cat">Calzado y moda</div>
+                <div class="store-badge">1 promo hoy</div>
+              </div>
+            </div>
+            <div class="store-card" onclick="goto('detail')">
+              <div class="store-banner" style="background:#FAEEDA">☕</div>
+              <div class="store-info">
+                <div class="store-name">Café Central</div>
+                <div class="store-cat">Cafetería</div>
+                <div class="store-badge">2 promos hoy</div>
+              </div>
+            </div>
+            <div class="store-card" onclick="goto('detail')">
+              <div class="store-banner" style="background:#FAECE7">💊</div>
+              <div class="store-info">
+                <div class="store-name">Farmacia Plus</div>
+                <div class="store-cat">Salud</div>
+                <div class="store-badge">Oferta especial</div>
+              </div>
+            </div>
+            <div class="store-card" onclick="goto('detail')">
+              <div class="store-banner" style="background:#EAF3DE">🌿</div>
+              <div class="store-info">
+                <div class="store-name">Orgánica</div>
+                <div class="store-cat">Productos naturales</div>
+                <div class="store-badge">Nuevo</div>
+              </div>
+            </div>
+            <div class="store-card" onclick="goto('detail')">
+              <div class="store-banner" style="background:#E6F1FB">📱</div>
+              <div class="store-info">
+                <div class="store-name">TechStore</div>
+                <div class="store-cat">Tecnología</div>
+                <div class="store-badge">2 promos hoy</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-nav">
+          <div class="nav-item active" onclick="goto('home')"><i class="ti ti-home" aria-hidden="true"></i>Inicio</div>
+          <div class="nav-item" onclick="goto('notif')"><i class="ti ti-bell" aria-hidden="true"></i>Alertas</div>
+          <div class="nav-item" onclick="goto('profile')"><i class="ti ti-user" aria-hidden="true"></i>Perfil</div>
+        </div>
+      </div>
+
+      <!-- DETALLE LOCAL 1 -->
+      <div id="s-detail" class="screen" style="flex-direction:column">
+        <div class="nav-bar">
+          <div class="back-btn" onclick="goto('home')"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+          <div class="nav-title">La Pizzería</div>
+          <div class="back-btn"><i class="ti ti-heart" aria-hidden="true"></i></div>
+        </div>
+        <div class="content">
+          <div class="detail-hero" style="background:#EEEDFE">🍕</div>
+          <div class="detail-body">
+            <div class="detail-name">La Pizzería</div>
+            <div class="detail-cat-badge">Comida italiana</div>
+            <p class="detail-desc">Pizzería artesanal con más de 20 años en el barrio. Masa madre, ingredientes frescos y el mejor horno a leña de Santiago.</p>
+            <div class="info-row"><i class="ti ti-clock" aria-hidden="true"></i><div class="info-text">Lun – Sáb: 12:00 – 23:00 · Dom: 13:00 – 21:00</div></div>
+            <div class="info-row"><i class="ti ti-map-pin" aria-hidden="true"></i><div class="info-text">Av. Providencia 1520, Santiago</div></div>
+            <div class="info-row"><i class="ti ti-phone" aria-hidden="true"></i><div class="info-text">+56 2 2345 6789</div></div>
+            <div class="map-placeholder"><i class="ti ti-map-2" aria-hidden="true"></i><span>Ver en mapa</span></div>
+            <div class="section-title">Promociones de hoy</div>
+            <div class="promo-card">
+              <div class="promo-tag">🔥 Solo hoy</div>
+              <div class="promo-title">2x1 en pizza familiar</div>
+              <div class="promo-desc">Pide 2 pizzas familiares y paga solo una. Válido en todo el menú.</div>
+              <div class="promo-exp">Vence hoy a las 23:00 hrs</div>
+            </div>
+            <div class="promo-card">
+              <div class="promo-tag">🎉 Especial semana</div>
+              <div class="promo-title">Postre gratis sobre $15.000</div>
+              <div class="promo-desc">En pedidos superiores a $15.000 te regalamos un tiramisú casero.</div>
+              <div class="promo-exp">Vence el viernes 23 mayo</div>
+            </div>
+            <div class="promo-card">
+              <div class="promo-tag">🚚 Delivery</div>
+              <div class="promo-title">Envío gratis por apertura</div>
+              <div class="promo-desc">Primer pedido por la app con delivery sin costo.</div>
+              <div class="promo-exp">Vence hoy a las 23:00 hrs</div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-nav">
+          <div class="nav-item" onclick="goto('home')"><i class="ti ti-home" aria-hidden="true"></i>Inicio</div>
+          <div class="nav-item" onclick="goto('notif')"><i class="ti ti-bell" aria-hidden="true"></i>Alertas</div>
+          <div class="nav-item" onclick="goto('profile')"><i class="ti ti-user" aria-hidden="true"></i>Perfil</div>
+        </div>
+      </div>
+
+      <!-- DETALLE LOCAL 2 -->
+      <div id="s-detail2" class="screen" style="flex-direction:column">
+        <div class="nav-bar">
+          <div class="back-btn" onclick="goto('home')"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+          <div class="nav-title">StepUp Shoes</div>
+          <div class="back-btn"><i class="ti ti-heart" aria-hidden="true"></i></div>
+        </div>
+        <div class="content">
+          <div class="detail-hero" style="background:#E1F5EE">👟</div>
+          <div class="detail-body">
+            <div class="detail-name">StepUp Shoes</div>
+            <div class="detail-cat-badge">Calzado y moda</div>
+            <p class="detail-desc">Tienda de calzado con las mejores marcas nacionales e importadas. Encontrarás desde zapatillas urbanas hasta zapatos formales.</p>
+            <div class="info-row"><i class="ti ti-clock" aria-hidden="true"></i><div class="info-text">Lun – Sáb: 10:00 – 20:00</div></div>
+            <div class="info-row"><i class="ti ti-map-pin" aria-hidden="true"></i><div class="info-text">Mall Costanera Center, L2, Santiago</div></div>
+            <div class="info-row"><i class="ti ti-phone" aria-hidden="true"></i><div class="info-text">+56 2 2987 6543</div></div>
+            <div class="map-placeholder"><i class="ti ti-map-2" aria-hidden="true"></i><span>Ver en mapa</span></div>
+            <div class="section-title">Promociones de hoy</div>
+            <div class="promo-card">
+              <div class="promo-tag">💸 Descuento</div>
+              <div class="promo-title">30% off en zapatillas seleccionadas</div>
+              <div class="promo-desc">Modelos de temporada pasada con hasta 30% de descuento. Stock limitado.</div>
+              <div class="promo-exp">Vence hoy a las 20:00 hrs</div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-nav">
+          <div class="nav-item" onclick="goto('home')"><i class="ti ti-home" aria-hidden="true"></i>Inicio</div>
+          <div class="nav-item" onclick="goto('notif')"><i class="ti ti-bell" aria-hidden="true"></i>Alertas</div>
+          <div class="nav-item" onclick="goto('profile')"><i class="ti ti-user" aria-hidden="true"></i>Perfil</div>
+        </div>
+      </div>
+
+      <!-- NOTIFICACIONES -->
+      <div id="s-notif" class="screen" style="flex-direction:column">
+        <div class="nav-bar">
+          <div class="nav-title">Alertas</div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab active">Novedades</div>
+          <div class="tab">Mis favoritos</div>
+        </div>
+        <div class="content">
+          <div class="notif-item">
+            <div class="notif-dot"></div>
+            <div class="notif-body">
+              <div class="notif-title">La Pizzería tiene nueva promo</div>
+              <div class="notif-desc">2x1 en pizza familiar solo por hoy. ¡No te la pierdas!</div>
+              <div class="notif-time">Hace 15 minutos</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-dot"></div>
+            <div class="notif-body">
+              <div class="notif-title">TechStore: iPhone reacondicionado</div>
+              <div class="notif-desc">Stock nuevo disponible con 20% de descuento.</div>
+              <div class="notif-time">Hace 1 hora</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-dot" style="background:var(--color-border-secondary)"></div>
+            <div class="notif-body">
+              <div class="notif-title">Café Central abre mañana</div>
+              <div class="notif-desc">Nuevo local en tu zona. Tienen café de especialidad.</div>
+              <div class="notif-time">Ayer</div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-nav">
+          <div class="nav-item" onclick="goto('home')"><i class="ti ti-home" aria-hidden="true"></i>Inicio</div>
+          <div class="nav-item active" onclick="goto('notif')"><i class="ti ti-bell" aria-hidden="true"></i>Alertas</div>
+          <div class="nav-item" onclick="goto('profile')"><i class="ti ti-user" aria-hidden="true"></i>Perfil</div>
+        </div>
+      </div>
+
+      <!-- PERFIL CLIENTE -->
+      <div id="s-profile" class="screen" style="flex-direction:column">
+        <div class="nav-bar">
+          <div class="nav-title">Mi perfil</div>
+        </div>
+        <div class="content">
+          <div class="profile-section">
+            <div class="profile-header">
+              <div class="avatar">MG</div>
+              <div>
+                <div class="profile-name">María González</div>
+                <div class="profile-email">maria@mail.com</div>
+              </div>
+            </div>
+          </div>
+          <div class="profile-section-label">Mi cuenta</div>
+          <div class="menu-item"><div class="menu-icon"><i class="ti ti-heart" aria-hidden="true"></i></div><div class="menu-label">Locales favoritos</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+          <div class="menu-item"><div class="menu-icon"><i class="ti ti-bell" aria-hidden="true"></i></div><div class="menu-label">Notificaciones</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+          <div class="menu-item"><div class="menu-icon"><i class="ti ti-map-pin" aria-hidden="true"></i></div><div class="menu-label">Mi ciudad</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+          <div class="profile-section-label">App</div>
+          <div class="menu-item"><div class="menu-icon"><i class="ti ti-settings" aria-hidden="true"></i></div><div class="menu-label">Configuración</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+          <div class="menu-item"><div class="menu-icon"><i class="ti ti-help" aria-hidden="true"></i></div><div class="menu-label">Ayuda</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+          <div class="menu-item" onclick="goto('login')"><div class="menu-icon" style="background:#FCEBEB"><i class="ti ti-logout" style="color:#A32D2D" aria-hidden="true"></i></div><div class="menu-label" style="color:#A32D2D">Cerrar sesión</div></div>
+        </div>
+        <div class="screen-nav">
+          <div class="nav-item" onclick="goto('home')"><i class="ti ti-home" aria-hidden="true"></i>Inicio</div>
+          <div class="nav-item" onclick="goto('notif')"><i class="ti ti-bell" aria-hidden="true"></i>Alertas</div>
+          <div class="nav-item active" onclick="goto('profile')"><i class="ti ti-user" aria-hidden="true"></i>Perfil</div>
+        </div>
+      </div>
+
+      <!-- DASHBOARD DUEÑO -->
+      <div id="s-owner-dash" class="screen" style="flex-direction:column">
+        <div class="dash-header">
+          <div class="dash-greeting">Bienvenido de vuelta,</div>
+          <div class="dash-store">La Pizzería</div>
+          <div style="font-size:12px;opacity:.7;margin-top:4px">Panel de administración</div>
+        </div>
+        <div class="dash-stats">
+          <div class="stat-card">
+            <div class="stat-label">Visitas hoy</div>
+            <div class="stat-value">142</div>
+            <div class="stat-sub">+18% vs ayer</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Favoritos</div>
+            <div class="stat-value">37</div>
+            <div class="stat-sub">usuarios guardaron</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Promos activas</div>
+            <div class="stat-value">3</div>
+            <div class="stat-sub">de 5 máximo</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Clicks tel.</div>
+            <div class="stat-value">24</div>
+            <div class="stat-sub">llamadas hoy</div>
+          </div>
+        </div>
+        <div class="profile-section-label">Gestión</div>
+        <div class="menu-item" onclick="goto('owner-promos')"><div class="menu-icon"><i class="ti ti-discount-2" aria-hidden="true"></i></div><div class="menu-label">Mis promociones</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+        <div class="menu-item" onclick="goto('owner-info')"><div class="menu-icon"><i class="ti ti-building-store" aria-hidden="true"></i></div><div class="menu-label">Info de mi tienda</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+        <div class="menu-item"><div class="menu-icon"><i class="ti ti-photo" aria-hidden="true"></i></div><div class="menu-label">Galería y logo</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+        <div class="menu-item"><div class="menu-icon"><i class="ti ti-chart-bar" aria-hidden="true"></i></div><div class="menu-label">Estadísticas</div><i class="ti ti-chevron-right menu-arrow" aria-hidden="true"></i></div>
+        <div class="menu-item" onclick="goto('owner-login')"><div class="menu-icon" style="background:#FCEBEB"><i class="ti ti-logout" style="color:#A32D2D" aria-hidden="true"></i></div><div class="menu-label" style="color:#A32D2D">Cerrar sesión</div></div>
+      </div>
+
+      <!-- DUEÑO: PROMOCIONES -->
+      <div id="s-owner-promos" class="screen" style="flex-direction:column">
+        <div class="nav-bar">
+          <div class="back-btn" onclick="goto('owner-dash')"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+          <div class="nav-title">Mis promociones</div>
+        </div>
+        <div class="content" style="padding:16px">
+          <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:14px">3 activas · 2 disponibles</p>
+          <div class="promo-edit-card">
+            <div class="promo-edit-top">
+              <div class="promo-edit-title">2x1 pizza familiar</div>
+              <div class="promo-actions">
+                <button class="promo-act-btn"><i class="ti ti-edit" aria-hidden="true"></i></button>
+                <button class="promo-act-btn"><i class="ti ti-trash" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <div class="promo-edit-desc">Solo hoy · Vence 23:00 hrs</div>
+            <div style="margin-top:6px"><span style="background:#E1F5EE;color:#0F6E56;font-size:11px;padding:2px 8px;border-radius:20px">Activa</span></div>
+          </div>
+          <div class="promo-edit-card">
+            <div class="promo-edit-top">
+              <div class="promo-edit-title">Postre gratis sobre $15.000</div>
+              <div class="promo-actions">
+                <button class="promo-act-btn"><i class="ti ti-edit" aria-hidden="true"></i></button>
+                <button class="promo-act-btn"><i class="ti ti-trash" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <div class="promo-edit-desc">Hasta el viernes 23 mayo</div>
+            <div style="margin-top:6px"><span style="background:#E1F5EE;color:#0F6E56;font-size:11px;padding:2px 8px;border-radius:20px">Activa</span></div>
+          </div>
+          <div class="promo-edit-card">
+            <div class="promo-edit-top">
+              <div class="promo-edit-title">Envío gratis primera compra</div>
+              <div class="promo-actions">
+                <button class="promo-act-btn"><i class="ti ti-edit" aria-hidden="true"></i></button>
+                <button class="promo-act-btn"><i class="ti ti-trash" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <div class="promo-edit-desc">Vence hoy a las 23:00 hrs</div>
+            <div style="margin-top:6px"><span style="background:#E1F5EE;color:#0F6E56;font-size:11px;padding:2px 8px;border-radius:20px">Activa</span></div>
+          </div>
+          <button class="add-btn"><i class="ti ti-plus" aria-hidden="true"></i>Nueva promoción</button>
+        </div>
+      </div>
+
+      <!-- DUEÑO: INFO TIENDA -->
+      <div id="s-owner-info" class="screen" style="flex-direction:column">
+        <div class="nav-bar">
+          <div class="back-btn" onclick="goto('owner-dash')"><i class="ti ti-arrow-left" aria-hidden="true"></i></div>
+          <div class="nav-title">Info de mi tienda</div>
+        </div>
+        <div class="content" style="padding:16px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+            <div style="width:60px;height:60px;background:#EEEDFE;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px">🍕</div>
+            <div>
+              <div style="font-size:16px;font-weight:500;color:var(--color-text-primary)">La Pizzería</div>
+              <div style="font-size:12px;color:#534AB7;cursor:pointer">Cambiar logo e imagen</div>
+            </div>
+          </div>
+          <div class="field"><label>Nombre del local</label><input type="text" value="La Pizzería" /></div>
+          <div class="field"><label>Categoría</label><input type="text" value="Comida italiana" /></div>
+          <div class="field"><label>Descripción</label><input type="text" value="Pizzería artesanal con más de 20 años..." /></div>
+          <div class="field"><label>Dirección</label><input type="text" value="Av. Providencia 1520, Santiago" /></div>
+          <div class="field"><label>Teléfono</label><input type="text" value="+56 2 2345 6789" /></div>
+          <div class="field"><label>Horario (Lun–Sáb)</label><input type="text" value="12:00 – 23:00" /></div>
+          <div class="field"><label>Horario (Dom)</label><input type="text" value="13:00 – 21:00" /></div>
+          <button class="btn-primary">Guardar cambios</button>
+        </div>
+      </div>
+
+    </div>
+    <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--color-text-tertiary)">Toca cualquier elemento para navegar</div>
+  </div>
+</div>
+
+<script>
+function goto(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById('s-'+id);
+  if(el){el.classList.add('active');el.scrollTop=0}
+}
+</script>
