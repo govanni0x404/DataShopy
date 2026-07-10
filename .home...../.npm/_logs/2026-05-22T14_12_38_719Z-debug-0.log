@@ -1,0 +1,12 @@
+0 verbose cli /home/govanni/.nvm/versions/node/v24.15.0/bin/node /home/govanni/.nvm/versions/node/v24.15.0/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@11.12.1
+2 info using node@v24.15.0
+3 silly config load:file:/home/govanni/.nvm/versions/node/v24.15.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/govanni/Proyects/DataShopy/DataShopy/.npmrc
+5 silly config load:file:/home/govanni/Proyects/DataShopy/.home/.npmrc
+6 silly config load:file:/home/govanni/.nvm/versions/node/v24.15.0/etc/npmrc
+7 verbose title npm exec expo start -c --port 8082
+8 verbose argv "exec" "--" "expo" "start" "-c" "--port" "8082"
+9 verbose logfile logs-max:10 dir:/home/govanni/Proyects/DataShopy/.home/.npm/_logs/2026-05-22T14_12_38_719Z-
+10 verbose logfile /home/govanni/Proyects/DataShopy/.home/.npm/_logs/2026-05-22T14_12_38_719Z-debug-0.log
+11 silly logfile done cleaning log files

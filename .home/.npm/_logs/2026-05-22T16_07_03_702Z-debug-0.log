@@ -1,0 +1,24 @@
+0 verbose cli /home/govanni/.nvm/versions/node/v24.15.0/bin/node /home/govanni/.nvm/versions/node/v24.15.0/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@11.12.1
+2 info using node@v24.15.0
+3 silly config load:file:/home/govanni/.nvm/versions/node/v24.15.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/home/govanni/Proyects/DataShopy/DataShopy/.npmrc
+5 silly config load:file:/home/govanni/Proyects/DataShopy/.home/.npmrc
+6 silly config load:file:/home/govanni/.nvm/versions/node/v24.15.0/etc/npmrc
+7 verbose title npm exec expo install expo-location
+8 verbose argv "exec" "--" "expo" "install" "expo-location"
+9 verbose logfile logs-max:10 dir:/home/govanni/Proyects/DataShopy/.home/.npm/_logs/2026-05-22T16_07_03_702Z-
+10 verbose logfile /home/govanni/Proyects/DataShopy/.home/.npm/_logs/2026-05-22T16_07_03_702Z-debug-0.log
+11 silly logfile done cleaning log files
+12 http fetch GET 200 https://registry.npmjs.org/npm 200ms
+13 verbose cwd /home/govanni/Proyects/DataShopy/DataShopy
+14 verbose os Linux 6.17.0-29-generic
+15 verbose node v24.15.0
+16 verbose npm  v11.12.1
+17 notice
+17 notice New [33mminor[39m version of npm available! [33m11.12.1[39m -> [34m11.15.0[39m
+17 notice Changelog: [34mhttps://github.com/npm/cli/releases/tag/v11.15.0[39m
+17 notice To update run: [4mnpm install -g npm@11.15.0[24m
+17 notice  { force: true, Symbol(proc-log.meta): true }
+18 verbose exit 0
+19 info ok
