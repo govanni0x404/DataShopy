@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
+import { supabase } from '../../supabase/client';
 
 function initialsFromName(name) {
   const n = (name || '').trim();
@@ -16,6 +17,7 @@ export default function ProfileScreen({ navigation, user }) {
   const displayName = user?.name || 'Invitado';
   const displayEmail = user?.email || '';
   const initials = useMemo(() => initialsFromName(displayName), [displayName]);
+  const tabNav = navigation.getParent?.();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -43,21 +45,27 @@ export default function ProfileScreen({ navigation, user }) {
         </View>
 
         <Text style={styles.sectionLabel}>Mi cuenta</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => tabNav?.navigate('Notifications', { screen: 'NotificationsMain', params: { initialTab: 'fav', user } })}
+        >
           <View style={styles.menuIcon}>
             <Ionicons name="heart-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.menuLabel}>Locales favoritos</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => tabNav?.navigate('Notifications', { screen: 'NotificationsMain', params: { initialTab: 'news', user } })}
+        >
           <View style={styles.menuIcon}>
             <Ionicons name="notifications-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.menuLabel}>Notificaciones</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClientCity', { user })}>
           <View style={styles.menuIcon}>
             <Ionicons name="location-outline" size={18} color={colors.primary} />
           </View>
@@ -66,14 +74,14 @@ export default function ProfileScreen({ navigation, user }) {
         </TouchableOpacity>
 
         <Text style={styles.sectionLabel}>App</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClientSettings', { user })}>
           <View style={styles.menuIcon}>
             <Ionicons name="settings-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.menuLabel}>Configuración</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClientHelp', { user })}>
           <View style={styles.menuIcon}>
             <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
           </View>
@@ -83,7 +91,10 @@ export default function ProfileScreen({ navigation, user }) {
 
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutItem]}
-          onPress={() => {
+          onPress={async () => {
+            try {
+              await supabase.auth.signOut();
+            } catch {}
             const root = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
             if (root?.replace) root.replace('Login');
             else navigation.navigate('Login');

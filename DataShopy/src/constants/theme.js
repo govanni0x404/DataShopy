@@ -2,6 +2,10 @@ export const colors = {
   primary: '#534AB7',
   primaryLight: '#EEEDFE',
   primaryMid: '#AFA9EC',
+  brandInk: '#0F0E0C',
+  brandPaper: '#F5F2EC',
+  brandMint: '#DCE8CF',
+  brandAccent: '#7AAD4A',
  
   success: '#0F6E56',
   successLight: '#E1F5EE',

@@ -10,6 +10,7 @@ export default function OwnerDashScreen({ navigation, route }) {
   const [activePromos, setActivePromos] = useState(0);
   const [visitsToday, setVisitsToday] = useState(0);
   const [callClicksToday, setCallClicksToday] = useState(0);
+  const [directionsToday, setDirectionsToday] = useState(0);
 
   const load = async () => {
     if (!owner?.id) return;
@@ -44,16 +45,26 @@ export default function OwnerDashScreen({ navigation, route }) {
           .gte('created_at', startIso);
         if (!calls.error) setCallClicksToday(calls.count || 0);
         else setCallClicksToday(0);
+        const directions = await supabase
+          .from('tracking_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', s.id)
+          .eq('event_name', 'directions_click')
+          .gte('created_at', startIso);
+        if (!directions.error) setDirectionsToday(directions.count || 0);
+        else setDirectionsToday(0);
       } else {
         setActivePromos(0);
         setVisitsToday(0);
         setCallClicksToday(0);
+        setDirectionsToday(0);
       }
     } catch {
       setStore(null);
       setActivePromos(0);
       setVisitsToday(0);
       setCallClicksToday(0);
+      setDirectionsToday(0);
     }
   };
 
@@ -86,9 +97,9 @@ export default function OwnerDashScreen({ navigation, route }) {
             <Text style={styles.statSub}>vistas del local</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Favoritos</Text>
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statSub}>próximamente</Text>
+            <Text style={styles.statLabel}>Cómo llegar</Text>
+            <Text style={styles.statValue}>{directionsToday}</Text>
+            <Text style={styles.statSub}>clicks hoy</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Promos activas</Text>
@@ -105,13 +116,14 @@ export default function OwnerDashScreen({ navigation, route }) {
         <Text style={styles.sectionLabel}>Gestión</Text>
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => navigation.navigate('ManagePromos', { owner, storeId: store?.id })}
-          disabled={!store?.id}
+          onPress={() =>
+            store?.id ? navigation.navigate('ManagePromos', { owner, storeId: store?.id }) : navigation.navigate('EditStore', { owner })
+          }
         >
           <View style={styles.menuIcon}>
             <Ionicons name="pricetags-outline" size={18} color={colors.primary} />
           </View>
-          <Text style={styles.menuLabel}>Mis promociones</Text>
+          <Text style={styles.menuLabel}>{store?.id ? 'Mis promociones' : 'Crear tienda para promos'}</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
@@ -131,7 +143,7 @@ export default function OwnerDashScreen({ navigation, route }) {
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('OwnerBranding', { owner })}>
           <View style={styles.menuIcon}>
             <Ionicons name="images-outline" size={18} color={colors.primary} />
           </View>
@@ -139,7 +151,7 @@ export default function OwnerDashScreen({ navigation, route }) {
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('OwnerStats', { owner })}>
           <View style={styles.menuIcon}>
             <Ionicons name="bar-chart-outline" size={18} color={colors.primary} />
           </View>
@@ -149,7 +161,10 @@ export default function OwnerDashScreen({ navigation, route }) {
 
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutItem]}
-          onPress={() => {
+          onPress={async () => {
+            try {
+              await supabase.auth.signOut();
+            } catch {}
             const root = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
             if (root?.replace) root.replace('OwnerLogin');
             else navigation.navigate('OwnerLogin');

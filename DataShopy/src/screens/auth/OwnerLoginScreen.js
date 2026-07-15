@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
+import BrandMark from '../../components/BrandMark';
 
 export default function OwnerLoginScreen({ navigation }) {
   const [mode, setMode] = useState('login'); // login | register
@@ -110,15 +111,32 @@ export default function OwnerLoginScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          <View style={styles.logoArea}>
-            <View style={styles.logoCircle}>
-              <Ionicons name={isRegister ? 'storefront' : 'shield-checkmark'} size={36} color={colors.primary} />
+          <View style={styles.heroCard}>
+            <BrandMark
+              size={76}
+              dark
+              title={title}
+              subtitle={subtitle}
+            />
+            <View style={styles.heroMeta}>
+              <View style={styles.heroPill}>
+                <Ionicons name="analytics-outline" size={14} color={colors.brandAccent} />
+                <Text style={styles.heroPillText}>Métricas reales</Text>
+              </View>
+              <View style={styles.heroPill}>
+                <Ionicons name="shield-checkmark-outline" size={14} color={colors.brandAccent} />
+                <Text style={styles.heroPillText}>Reclamo seguro</Text>
+              </View>
             </View>
-            <Text style={styles.appName}>{title}</Text>
-            <Text style={styles.appSub}>{subtitle}</Text>
           </View>
 
           <View style={styles.form}>
+            <Text style={styles.formTitle}>{isRegister ? 'Activa tu negocio' : 'Entrar al panel de dueño'}</Text>
+            <Text style={styles.formSub}>
+              {isRegister
+                ? 'Crea tu acceso para reclamar o administrar tu local.'
+                : 'Gestiona tu perfil, promociones y actividad del negocio.'}
+            </Text>
             {isRegister && (
               <>
                 <Text style={styles.fieldLabel}>Nombre del responsable</Text>
@@ -223,19 +241,38 @@ export default function OwnerLoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  logoArea: { alignItems: 'center', paddingTop: 48, paddingBottom: 24 },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+  heroCard: {
+    marginHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 18,
+    borderRadius: 28,
+    backgroundColor: colors.brandInk,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
   },
-  appName: { fontSize: 22, fontWeight: '500', color: colors.text },
-  appSub: { fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: 'center', paddingHorizontal: 24 },
-  form: { paddingHorizontal: 24, paddingBottom: 32 },
+  heroMeta: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' },
+  heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(245,242,236,0.08)',
+  },
+  heroPillText: { color: colors.brandPaper, fontSize: 12, fontWeight: '500' },
+  form: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 24,
+    backgroundColor: colors.bg,
+    borderWidth: 0.5,
+    borderColor: colors.borderLight,
+  },
+  formTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  formSub: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   fieldLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
   input: {
     borderWidth: 0.5,
@@ -244,7 +281,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     color: colors.text,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.bgSecondary,
   },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eyeBtn: { padding: 10 },
@@ -261,13 +298,13 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 12, color: colors.textTertiary },
   btnSecondary: {
     borderWidth: 0.5,
-    borderColor: colors.primary,
+    borderColor: colors.brandInk,
     borderRadius: radius.md,
     padding: 13,
     alignItems: 'center',
     marginBottom: 16,
   },
-  btnSecondaryText: { color: colors.primary, fontSize: 14 },
+  btnSecondaryText: { color: colors.brandInk, fontSize: 14, fontWeight: '500' },
   linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary, marginBottom: 10 },
   linkAccent: { color: colors.primary },
   demoBox: {

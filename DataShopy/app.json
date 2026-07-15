@@ -10,22 +10,21 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0F0E0C"
     },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Usamos tu ubicación para mostrar locales cercanos."
+        "NSLocationWhenInUseUsageDescription": "Usamos tu ubicación para mostrar locales cercanos.",
+        "NSPhotoLibraryUsageDescription": "DataShopy necesita acceso a tus fotos para subir el logo, la portada y la galería del negocio."
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0F0E0C"
       },
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
@@ -38,7 +37,13 @@
     "plugins": [
       "expo-sqlite",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DataShopy necesita acceso a tus fotos para subir el logo, la portada y la galería del negocio."
+        }
+      ]
     ],
     "extra": {
       "supabaseUrl": "https://vwmdgxwxqedhhsqgxhoe.supabase.co",

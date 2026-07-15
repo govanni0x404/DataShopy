@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
+import BrandMark from '../../components/BrandMark';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -63,17 +64,28 @@ export default function LoginScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Logo */}
-          <View style={styles.logoArea}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="storefront" size={36} color={colors.primary} />
+          <View style={styles.heroCard}>
+            <BrandMark
+              size={82}
+              dark
+              title="DataShopy"
+              subtitle="Descubre, compara y encuentra negocios cercanos con promociones reales."
+            />
+            <View style={styles.heroTags}>
+              <View style={styles.heroTag}>
+                <Ionicons name="location-outline" size={14} color={colors.brandAccent} />
+                <Text style={styles.heroTagText}>Locales cercanos</Text>
+              </View>
+              <View style={styles.heroTag}>
+                <Ionicons name="pricetags-outline" size={14} color={colors.brandAccent} />
+                <Text style={styles.heroTagText}>Promos activas</Text>
+              </View>
             </View>
-            <Text style={styles.appName}>DataShopy</Text>
-            <Text style={styles.appSub}>Descubre los mejores locales</Text>
           </View>
 
-          {/* Formulario */}
           <View style={styles.form}>
+            <Text style={styles.formTitle}>Ingresa a tu cuenta</Text>
+            <Text style={styles.formSub}>Tu catálogo y favoritos quedan listos al instante.</Text>
             <Text style={styles.fieldLabel}>Correo electrónico</Text>
             <TextInput
               style={styles.input}
@@ -138,18 +150,44 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flexGrow: 1 },
-  logoArea: { alignItems: 'center', paddingTop: 48, paddingBottom: 24 },
-  logoCircle: {
-    width: 72, height: 72,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
+  scroll: { flexGrow: 1, paddingBottom: 28 },
+  heroCard: {
+    marginHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 18,
+    borderRadius: 28,
+    backgroundColor: colors.brandInk,
+    paddingHorizontal: 22,
+    paddingVertical: 26,
   },
-  appName: { fontSize: 28, fontWeight: '500', color: colors.text },
-  appSub: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
-  form: { paddingHorizontal: 24 },
+  heroTags: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    marginTop: 16,
+    flexWrap: 'wrap',
+  },
+  heroTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(245,242,236,0.08)',
+  },
+  heroTagText: { color: colors.brandPaper, fontSize: 12, fontWeight: '500' },
+  form: {
+    marginHorizontal: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 24,
+    backgroundColor: colors.bg,
+    borderWidth: 0.5,
+    borderColor: colors.borderLight,
+  },
+  formTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  formSub: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   fieldLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
   input: {
     borderWidth: 0.5,
@@ -158,7 +196,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     color: colors.text,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.bgSecondary,
   },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eyeBtn: { padding: 10 },
@@ -175,13 +213,13 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 12, color: colors.textTertiary },
   btnSecondary: {
     borderWidth: 0.5,
-    borderColor: colors.primary,
+    borderColor: colors.brandInk,
     borderRadius: radius.md,
     padding: 13,
     alignItems: 'center',
     marginBottom: 16,
   },
-  btnSecondaryText: { color: colors.primary, fontSize: 14 },
+  btnSecondaryText: { color: colors.brandInk, fontSize: 14, fontWeight: '500' },
   linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary, marginBottom: 10 },
   linkAccent: { color: colors.primary },
   demoBox: {

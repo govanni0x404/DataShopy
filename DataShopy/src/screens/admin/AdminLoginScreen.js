@@ -11,7 +11,7 @@ export default function AdminLoginScreen({ navigation }) {
       Alert.alert('Pin incorrecto', 'Intenta nuevamente.');
       return;
     }
-    navigation.replace('AdminClaims');
+    navigation.replace('AdminClaims', { adminPin: pin.trim() });
   };
 
   return (
@@ -81,4 +81,3 @@ const styles = StyleSheet.create({
   },
   btnText: { color: colors.white, fontSize: 15, fontWeight: '500' },
 });
-

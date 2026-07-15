@@ -3,7 +3,7 @@ import { Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOp
 import { Ionicons } from '@expo/vector-icons';
 import PromoCard from '../../components/PromoCard';
 import { colors, radius, spacing } from '../../constants/theme';
-import { getPromosByStore, getStoreById, importCatalogPromos, trackEvent } from '../../database/db';
+import { getPromosByStore, getStoreById, importCatalogPromos, isFavoriteStore, toggleFavoriteStore, trackEvent } from '../../database/db';
 import { supabase } from '../../supabase/client';
 
 export default function StoreDetailScreen({ navigation, route }) {
@@ -11,11 +11,13 @@ export default function StoreDetailScreen({ navigation, route }) {
   const userId = route.params?.userId || null;
   const [store, setStore] = useState(null);
   const [promos, setPromos] = useState([]);
+  const [favorite, setFavorite] = useState(false);
 
   useEffect(() => {
     if (!storeId) return;
     const s = getStoreById(storeId);
     setStore(s);
+    setFavorite(isFavoriteStore(userId, storeId));
     const claimed = Number(s?.claimed || 0) === 1;
     setPromos(claimed ? getPromosByStore(storeId) : []);
   }, [storeId]);
@@ -120,6 +122,21 @@ export default function StoreDetailScreen({ navigation, route }) {
   }, [coords]);
 
   const isClaimed = useMemo(() => Number(store?.claimed || 0) === 1, [store?.claimed]);
+  const galleryUrls = useMemo(() => {
+    if (!store?.gallery_urls) return [];
+    if (Array.isArray(store.gallery_urls)) return store.gallery_urls.filter(Boolean);
+    try {
+      const parsed = JSON.parse(store.gallery_urls);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }, [store?.gallery_urls]);
+
+  const handleToggleFavorite = () => {
+    const result = toggleFavoriteStore(userId, storeId);
+    setFavorite(result.isFavorite);
+  };
 
   if (!store) {
     return (
@@ -147,22 +164,56 @@ export default function StoreDetailScreen({ navigation, route }) {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {store.name}
         </Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => {}}>
-          <Ionicons name="heart-outline" size={20} color={colors.textSecondary} />
+        <TouchableOpacity style={styles.backBtn} onPress={handleToggleFavorite}>
+          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={20} color={favorite ? colors.danger : colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={[styles.hero, { backgroundColor: store.banner_color || colors.primaryLight }]}>
-          <Text style={styles.heroEmoji}>{store.emoji || '🏪'}</Text>
+          {!!store.cover_image_url && <Image source={{ uri: store.cover_image_url }} style={styles.heroImage} resizeMode="cover" />}
+          <View style={styles.heroTopBadge}>
+            <Text style={styles.heroTopBadgeText}>{isClaimed ? 'Perfil activo' : 'Pendiente de reclamo'}</Text>
+          </View>
+          {!!store.logo_url ? (
+            <Image source={{ uri: store.logo_url }} style={styles.heroLogo} resizeMode="cover" />
+          ) : (
+            <Text style={styles.heroEmoji}>{store.emoji || '🏪'}</Text>
+          )}
         </View>
 
         <View style={styles.body}>
           <Text style={styles.name}>{store.name}</Text>
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{store.category}</Text>
+          <View style={styles.metaRow}>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{store.category}</Text>
+            </View>
+            {!!store.city && (
+              <View style={styles.softBadge}>
+                <Ionicons name="navigate-outline" size={13} color={colors.brandInk} />
+                <Text style={styles.softBadgeText}>{store.city}</Text>
+              </View>
+            )}
           </View>
           {store.description ? <Text style={styles.desc}>{store.description}</Text> : null}
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={[styles.actionBtn, styles.actionBtnPrimary]} onPress={openDirections} activeOpacity={0.85}>
+              <Ionicons name="map-outline" size={18} color={colors.white} />
+              <Text style={styles.actionBtnPrimaryText}>Cómo llegar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnSecondary, !store.phone && styles.actionBtnDisabled]}
+              onPress={openCall}
+              activeOpacity={0.85}
+              disabled={!store.phone}
+            >
+              <Ionicons name="call-outline" size={18} color={store.phone ? colors.brandInk : colors.textTertiary} />
+              <Text style={[styles.actionBtnSecondaryText, !store.phone && styles.actionBtnSecondaryTextDisabled]}>
+                Llamar
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {!!scheduleText && (
             <View style={styles.infoRow}>
@@ -177,10 +228,21 @@ export default function StoreDetailScreen({ navigation, route }) {
             </View>
           )}
           {!!store.phone && (
-            <TouchableOpacity style={styles.infoRow} onPress={openCall} activeOpacity={0.75}>
+            <View style={styles.infoRow}>
               <Ionicons name="call-outline" size={18} color={colors.primary} />
               <Text style={styles.infoText}>{store.phone}</Text>
-            </TouchableOpacity>
+            </View>
+          )}
+
+          {!!galleryUrls.length && (
+            <>
+              <Text style={styles.sectionTitle}>Galería</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
+                {galleryUrls.map((url) => (
+                  <Image key={url} source={{ uri: url }} style={styles.galleryImage} resizeMode="cover" />
+                ))}
+              </ScrollView>
+            </>
           )}
 
           <TouchableOpacity style={styles.mapCard} onPress={openDirections} activeOpacity={0.85}>
@@ -228,21 +290,70 @@ const styles = StyleSheet.create({
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '500', color: colors.text, paddingHorizontal: 8 },
   scroll: { paddingBottom: spacing.xxl },
-  hero: { height: 180, alignItems: 'center', justifyContent: 'center' },
+  hero: { height: 180, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  heroTopBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    backgroundColor: 'rgba(15,14,12,0.82)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+  },
+  heroTopBadgeText: { color: colors.brandPaper, fontSize: 11, fontWeight: '600' },
+  heroLogo: {
+    width: 82,
+    height: 82,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
   heroEmoji: { fontSize: 64 },
   body: { padding: spacing.lg },
   name: { fontSize: 22, fontWeight: '500', color: colors.text },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 6, marginBottom: 12 },
   categoryBadge: {
     alignSelf: 'flex-start',
     backgroundColor: colors.primaryLight,
     borderRadius: radius.full,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    marginTop: 6,
-    marginBottom: 12,
   },
   categoryText: { color: colors.primary, fontSize: 12, fontWeight: '500' },
+  softBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.brandPaper,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  softBadgeText: { color: colors.brandInk, fontSize: 12, fontWeight: '500' },
   desc: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
+  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  actionBtn: {
+    flex: 1,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  actionBtnPrimary: { backgroundColor: colors.brandInk },
+  actionBtnSecondary: {
+    backgroundColor: colors.brandPaper,
+    borderWidth: 0.5,
+    borderColor: '#ECE6DA',
+  },
+  actionBtnDisabled: { backgroundColor: colors.bgSecondary, borderColor: colors.borderLight },
+  actionBtnPrimaryText: { color: colors.white, fontSize: 13, fontWeight: '600' },
+  actionBtnSecondaryText: { color: colors.brandInk, fontSize: 13, fontWeight: '600' },
+  actionBtnSecondaryTextDisabled: { color: colors.textTertiary },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -281,6 +392,8 @@ const styles = StyleSheet.create({
   },
   mapOverlayText: { fontSize: 12, color: colors.white, fontWeight: '500' },
   sectionTitle: { fontSize: 15, fontWeight: '500', color: colors.text, marginTop: 18, marginBottom: 10 },
+  galleryRow: { gap: 10, paddingBottom: 6 },
+  galleryImage: { width: 140, height: 96, borderRadius: radius.md },
   emptyPromos: { fontSize: 13, color: colors.textSecondary, paddingVertical: 12 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontSize: 14, color: colors.textSecondary },

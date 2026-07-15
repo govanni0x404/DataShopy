@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../constants/theme';
+import { supabase } from '../supabase/client';
+import { getProfile } from '../supabase/profile';
 
 // Auth
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -16,12 +19,17 @@ import HomeScreen from '../screens/client/HomeScreen';
 import StoreDetailScreen from '../screens/client/StoreDetailScreen';
 import NotificationsScreen from '../screens/client/NotificationsScreen';
 import ProfileScreen from '../screens/client/ProfileScreen';
+import ClientCityScreen from '../screens/client/ClientCityScreen';
+import ClientSettingsScreen from '../screens/client/ClientSettingsScreen';
+import ClientHelpScreen from '../screens/client/ClientHelpScreen';
 
 // Dueño
 import OwnerDashScreen from '../screens/owner/OwnerDashScreen';
 import ManagePromosScreen from '../screens/owner/ManagePromosScreen';
 import EditStoreScreen from '../screens/owner/EditStoreScreen';
 import ClaimStoreScreen from '../screens/owner/ClaimStoreScreen';
+import OwnerBrandingScreen from '../screens/owner/OwnerBrandingScreen';
+import OwnerStatsScreen from '../screens/owner/OwnerStatsScreen';
 
 import AdminLoginScreen from '../screens/admin/AdminLoginScreen';
 import AdminClaimsScreen from '../screens/admin/AdminClaimsScreen';
@@ -57,10 +65,8 @@ function ClientTabs({ route }) {
       })}
     >
       <Tab.Screen name="Home" component={HomeStackScreen} options={{ tabBarLabel: 'Inicio' }} initialParams={{ user }} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarLabel: 'Alertas' }} />
-      <Tab.Screen name="Profile" options={{ tabBarLabel: 'Perfil' }}>
-        {(props) => <ProfileScreen {...props} user={user} />}
-      </Tab.Screen>
+      <Tab.Screen name="Notifications" component={NotificationsStackScreen} options={{ tabBarLabel: 'Alertas' }} initialParams={{ user }} />
+      <Tab.Screen name="Profile" component={ProfileStackScreen} options={{ tabBarLabel: 'Perfil' }} initialParams={{ user }} />
     </Tab.Navigator>
   );
 }
@@ -77,6 +83,32 @@ function HomeStackScreen({ route }) {
   );
 }
 
+const NotificationsStack = createStackNavigator();
+function NotificationsStackScreen({ route }) {
+  const user = route.params?.user;
+  return (
+    <NotificationsStack.Navigator screenOptions={{ headerShown: false }}>
+      <NotificationsStack.Screen name="NotificationsMain" component={NotificationsScreen} initialParams={{ user }} />
+      <NotificationsStack.Screen name="StoreDetail" component={StoreDetailScreen} />
+    </NotificationsStack.Navigator>
+  );
+}
+
+const ProfileStack = createStackNavigator();
+function ProfileStackScreen({ route }) {
+  const user = route.params?.user;
+  return (
+    <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
+      <ProfileStack.Screen name="ProfileMain" options={{ headerShown: false }}>
+        {(props) => <ProfileScreen {...props} user={user} />}
+      </ProfileStack.Screen>
+      <ProfileStack.Screen name="ClientCity" component={ClientCityScreen} initialParams={{ user }} />
+      <ProfileStack.Screen name="ClientSettings" component={ClientSettingsScreen} initialParams={{ user }} />
+      <ProfileStack.Screen name="ClientHelp" component={ClientHelpScreen} initialParams={{ user }} />
+    </ProfileStack.Navigator>
+  );
+}
+
 // ─── Stack del dueño ──────────────────────────────────────────────────────────
 const OwnerStack = createStackNavigator();
 function OwnerStackScreen({ route }) {
@@ -87,15 +119,82 @@ function OwnerStackScreen({ route }) {
       <OwnerStack.Screen name="ManagePromos" component={ManagePromosScreen} />
       <OwnerStack.Screen name="EditStore" component={EditStoreScreen} />
       <OwnerStack.Screen name="ClaimStore" component={ClaimStoreScreen} />
+      <OwnerStack.Screen name="OwnerBranding" component={OwnerBrandingScreen} />
+      <OwnerStack.Screen name="OwnerStats" component={OwnerStatsScreen} />
     </OwnerStack.Navigator>
   );
 }
 
 // ─── Navegador raíz ───────────────────────────────────────────────────────────
 export default function AppNavigator() {
+  const [booting, setBooting] = useState(true);
+  const [initialRoute, setInitialRoute] = useState('Login');
+  const [initialParams, setInitialParams] = useState(undefined);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session;
+        const user = session?.user;
+        if (!mounted || !user?.id) {
+          if (mounted) {
+            setInitialRoute('Login');
+            setInitialParams(undefined);
+          }
+          return;
+        }
+
+        let profile = null;
+        try {
+          profile = await getProfile(user.id);
+        } catch {}
+
+        if (!mounted) return;
+
+        if (profile?.role === 'owner') {
+          setInitialRoute('OwnerApp');
+          setInitialParams({
+            owner: {
+              id: user.id,
+              name: profile.name || user.user_metadata?.name || 'Dueño',
+              email: user.email || '',
+            },
+          });
+        } else {
+          setInitialRoute('ClientApp');
+          setInitialParams({
+            user: {
+              id: user.id,
+              name: profile?.name || user.user_metadata?.name || 'Usuario',
+              email: user.email || '',
+            },
+          });
+        }
+      } finally {
+        if (mounted) setBooting(false);
+      }
+    };
+
+    bootstrap();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (booting) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
         {/* Auth */}
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
@@ -103,9 +202,9 @@ export default function AppNavigator() {
         <Stack.Screen name="AdminLogin" component={AdminLoginScreen} />
         <Stack.Screen name="AdminClaims" component={AdminClaimsScreen} />
         {/* Cliente (con tabs) */}
-        <Stack.Screen name="ClientApp" component={ClientTabs} />
+        <Stack.Screen name="ClientApp" component={ClientTabs} initialParams={initialRoute === 'ClientApp' ? initialParams : undefined} />
         {/* Dueño */}
-        <Stack.Screen name="OwnerApp" component={OwnerStackScreen} />
+        <Stack.Screen name="OwnerApp" component={OwnerStackScreen} initialParams={initialRoute === 'OwnerApp' ? initialParams : undefined} />
       </Stack.Navigator>
     </NavigationContainer>
   );

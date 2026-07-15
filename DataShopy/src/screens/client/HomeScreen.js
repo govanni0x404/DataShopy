@@ -11,9 +11,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import CategoryFilter from '../../components/CategoryFilter';
+import BrandMark from '../../components/BrandMark';
 import StoreCard from '../../components/StoreCard';
-import { colors, spacing, categories } from '../../constants/theme';
-import { countActivePromos, getAllStores, getAppMeta, importCatalogStores, setAppMeta } from '../../database/db';
+import { colors, spacing, radius, categories } from '../../constants/theme';
+import { countActivePromos, getAllStores, getAppMeta, getClientPreferences, importCatalogStores, setAppMeta } from '../../database/db';
 import { supabase } from '../../supabase/client';
 
 const toRad = (deg) => (deg * Math.PI) / 180;
@@ -40,8 +41,10 @@ export default function HomeScreen({ navigation, route }) {
   const [locationStatus, setLocationStatus] = useState('idle'); // idle | granted | denied
   const [userCoords, setUserCoords] = useState(null); // {lat,lng}
   const [userCity, setUserCity] = useState(null);
+  const [preferredCity, setPreferredCity] = useState('');
   const [cityFallback, setCityFallback] = useState(false);
   const [googleNote, setGoogleNote] = useState('');
+  const effectiveCity = (preferredCity || userCity || '').trim();
 
   const selectedCategoryLabel = useMemo(() => {
     if (selectedCategoryId === 'all') return null;
@@ -67,7 +70,7 @@ export default function HomeScreen({ navigation, route }) {
     }
     setPromoCounts(counts);
 
-    const city = (userCity || '').trim().toLowerCase();
+    const city = effectiveCity.toLowerCase();
     const withDistance = list.map((s) => {
       const lat = typeof s.lat === 'number' ? s.lat : s.lat ? Number(s.lat) : null;
       const lng = typeof s.lng === 'number' ? s.lng : s.lng ? Number(s.lng) : null;
@@ -103,13 +106,19 @@ export default function HomeScreen({ navigation, route }) {
   };
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', loadStores);
+    const unsubscribe = navigation.addListener('focus', () => {
+      const prefs = getClientPreferences(user?.id);
+      setPreferredCity(prefs.preferred_city || '');
+      loadStores();
+    });
     return unsubscribe;
-  }, [navigation, selectedCategoryLabel]);
+  }, [navigation, selectedCategoryLabel, user?.id, preferredCity, userCity, userCoords]);
 
   useEffect(() => {
+    const prefs = getClientPreferences(user?.id);
+    setPreferredCity(prefs.preferred_city || '');
     loadStores();
-  }, [selectedCategoryLabel, userCity, userCoords]);
+  }, [selectedCategoryLabel, userCity, userCoords, user?.id]);
 
   useEffect(() => {
     let mounted = true;
@@ -149,7 +158,7 @@ export default function HomeScreen({ navigation, route }) {
   useEffect(() => {
     let mounted = true;
     const syncCatalog = async () => {
-      const city = (userCity || '').trim();
+      const city = effectiveCity;
       const syncKey = `sb_sync_city:${city ? city.toLowerCase() : '__any__'}`;
       const last = getAppMeta(syncKey);
       const now = Date.now();
@@ -163,7 +172,7 @@ export default function HomeScreen({ navigation, route }) {
         let q = supabase
           .from('stores')
           .select(
-            'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at'
+            'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls'
           )
           .limit(250);
         if (city) q = q.eq('city', city);
@@ -173,7 +182,7 @@ export default function HomeScreen({ navigation, route }) {
           const fallback = await supabase
             .from('stores')
             .select(
-              'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at'
+              'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls'
             )
             .limit(250);
           if (fallback.error) throw fallback.error;
@@ -197,6 +206,9 @@ export default function HomeScreen({ navigation, route }) {
           external_id: `sb:store/${s.id}`,
           claimed: s.claimed ? 1 : 0,
           claimed_at: s.claimed_at,
+          logo_url: s.logo_url || null,
+          cover_image_url: s.cover_image_url || null,
+          gallery_urls: s.gallery_urls || [],
         }));
         const res = importCatalogStores({ stores: mapped, source: 'supabase' });
         setAppMeta(syncKey, new Date().toISOString());
@@ -213,7 +225,7 @@ export default function HomeScreen({ navigation, route }) {
     return () => {
       mounted = false;
     };
-  }, [userCity]);
+  }, [effectiveCity]);
 
   const goToNotifications = () => {
     const maybeTabNav = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
@@ -227,7 +239,10 @@ export default function HomeScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>DataShopy</Text>
+        <View>
+          <Text style={styles.headerEyebrow}>Descubrir</Text>
+          <Text style={styles.headerTitle}>DataShopy</Text>
+        </View>
         <TouchableOpacity style={styles.headerIcon} onPress={goToNotifications}>
           <Ionicons name="notifications-outline" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -241,6 +256,29 @@ export default function HomeScreen({ navigation, route }) {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View>
+            <View style={styles.heroWrap}>
+              <View style={styles.heroCard}>
+                <BrandMark
+                  size={56}
+                  title={`Hola${user?.name ? `, ${String(user.name).split(' ')[0]}` : ''}`}
+                  subtitle={effectiveCity ? `Explora negocios y promociones en ${effectiveCity}.` : 'Explora negocios, promociones y rutas cercanas.'}
+                />
+                <View style={styles.heroStats}>
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatValue}>{stores.length}</Text>
+                    <Text style={styles.heroStatLabel}>Locales</Text>
+                  </View>
+                  <View style={styles.heroStatDivider} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatValue}>
+                      {Object.values(promoCounts).reduce((acc, value) => acc + Number(value || 0), 0)}
+                    </Text>
+                    <Text style={styles.heroStatLabel}>Promos</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
             <View style={styles.searchBar}>
               <View style={styles.searchInput}>
                 <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
@@ -259,14 +297,15 @@ export default function HomeScreen({ navigation, route }) {
             <View style={styles.countRow}>
               <Text style={styles.countText}>
                 {filteredStores.length} {filteredStores.length === 1 ? 'local' : 'locales'}
-                {userCity ? ` en ${userCity}` : ' cerca de ti'}
+                {effectiveCity ? ` en ${effectiveCity}` : ' cerca de ti'}
               </Text>
+              <Text style={styles.countSubtext}>Abre un local para ver promociones, llamada y mapa en un toque.</Text>
               {!!googleNote && (
                 <Text style={styles.helperText}>{googleNote}</Text>
               )}
               {cityFallback && (
                 <Text style={styles.helperText}>
-                  No hay locales en {userCity}. Mostrando todos.
+                  No hay locales en {effectiveCity}. Mostrando todos.
                 </Text>
               )}
               {locationStatus === 'denied' && (
@@ -302,8 +341,34 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: colors.borderLight,
   },
-  headerTitle: { fontSize: 17, fontWeight: '500', color: colors.text },
+  headerEyebrow: { fontSize: 11, color: colors.textTertiary, marginBottom: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.brandInk },
   headerIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  heroWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  heroCard: {
+    borderRadius: 24,
+    backgroundColor: colors.brandPaper,
+    padding: spacing.lg,
+    borderWidth: 0.5,
+    borderColor: '#ECE6DA',
+  },
+  heroStats: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: radius.lg,
+    backgroundColor: colors.bg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  heroStat: { flex: 1, alignItems: 'center' },
+  heroStatDivider: { width: 1, height: 28, backgroundColor: colors.borderLight },
+  heroStatValue: { fontSize: 20, fontWeight: '700', color: colors.brandInk },
+  heroStatLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   searchBar: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -326,6 +391,7 @@ const styles = StyleSheet.create({
   },
   countRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   countText: { fontSize: 13, color: colors.textSecondary },
+  countSubtext: { marginTop: 4, fontSize: 12, color: colors.textTertiary },
   helperText: { marginTop: 4, fontSize: 12, color: colors.textTertiary },
   list: { paddingBottom: spacing.xxl },
   gridRow: { paddingHorizontal: spacing.lg, gap: 12 },

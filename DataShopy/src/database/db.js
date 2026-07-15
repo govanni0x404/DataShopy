@@ -32,6 +32,11 @@ const ensureIndexes = (database) => {
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_promotions_external_id ON promotions(external_id) WHERE external_id IS NOT NULL"
     );
   } catch {}
+  try {
+    database.execSync(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_favorite_stores_user_store ON favorite_stores(user_id, store_id)"
+    );
+  } catch {}
 };
 
 const ensureSystemOwner = (database) => {
@@ -130,6 +135,23 @@ export const initDB = async () => {
       value TEXT,
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS favorite_stores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      store_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS client_preferences (
+      user_id TEXT PRIMARY KEY,
+      preferred_city TEXT,
+      notifications_enabled INTEGER DEFAULT 1,
+      promo_alerts INTEGER DEFAULT 1,
+      nearby_alerts INTEGER DEFAULT 1,
+      marketing_updates INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   ensureColumns(database, 'stores', [
@@ -141,6 +163,9 @@ export const initDB = async () => {
     { name: 'external_id', type: 'TEXT' },
     { name: 'claimed', type: 'INTEGER DEFAULT 0' },
     { name: 'claimed_at', type: 'TEXT' },
+    { name: 'logo_url', type: 'TEXT' },
+    { name: 'cover_image_url', type: 'TEXT' },
+    { name: 'gallery_urls', type: 'TEXT' },
   ]);
 
   ensureColumns(database, 'promotions', [
@@ -246,6 +271,11 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
     const bannerColor = safeText(raw?.banner_color) || safeText(raw?.color) || '#EEEDFE';
     const lat = safeNum(raw?.lat);
     const lng = safeNum(raw?.lng);
+    const logoUrl = safeText(raw?.logo_url);
+    const coverImageUrl = safeText(raw?.cover_image_url);
+    const galleryUrls = Array.isArray(raw?.gallery_urls)
+      ? JSON.stringify(raw.gallery_urls.filter(Boolean))
+      : safeText(raw?.gallery_urls);
     const claimed = raw?.claimed === true || String(raw?.claimed) === '1' || raw?.claimed === 1 ? 1 : 0;
     const claimedAt = safeText(raw?.claimed_at);
 
@@ -258,8 +288,8 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
       const existing = db.getFirstSync('SELECT id FROM stores WHERE external_id = ? LIMIT 1', [externalId]);
       if (!existing) {
         db.runSync(
-          `INSERT INTO stores (owner_id, name, category, description, address, phone, schedule_weekday, schedule_weekend, emoji, banner_color, city, country, lat, lng, source, external_id, claimed)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO stores (owner_id, name, category, description, address, phone, schedule_weekday, schedule_weekend, emoji, banner_color, city, country, lat, lng, source, external_id, claimed, logo_url, cover_image_url, gallery_urls)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             systemOwnerId,
             name,
@@ -278,6 +308,9 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
             rawSource,
             externalId,
             claimed,
+            logoUrl,
+            coverImageUrl,
+            galleryUrls,
           ]
         );
         inserted += 1;
@@ -297,6 +330,9 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
                country = COALESCE(?, country),
                lat = COALESCE(?, lat),
                lng = COALESCE(?, lng),
+               logo_url = COALESCE(?, logo_url),
+               cover_image_url = COALESCE(?, cover_image_url),
+               gallery_urls = COALESCE(?, gallery_urls),
                claimed = COALESCE(?, claimed),
                claimed_at = COALESCE(?, claimed_at),
                source = COALESCE(source, ?),
@@ -316,6 +352,9 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
             country,
             lat,
             lng,
+            logoUrl,
+            coverImageUrl,
+            galleryUrls,
             claimed,
             claimedAt,
             rawSource,
@@ -588,6 +627,12 @@ export const getAllStores = (category = null) => {
 export const getStoreById = (id) => {
   const db = getDB();
   return db.getFirstSync('SELECT * FROM stores WHERE id = ?', [id]);
+};
+
+export const getStoreByExternalId = (externalId) => {
+  const db = getDB();
+  if (!externalId) return null;
+  return db.getFirstSync('SELECT * FROM stores WHERE external_id = ? LIMIT 1', [externalId]);
 };
  
 export const getStoreByOwner = (ownerId) => {
@@ -957,4 +1002,101 @@ export const countActivePromos = (storeId) => {
     [storeId]
   );
   return result?.count || 0;
+};
+
+const safeClientKey = (userId) => String(userId || 'guest');
+
+export const getClientPreferences = (userId) => {
+  const db = getDB();
+  const key = safeClientKey(userId);
+  const row = db.getFirstSync(
+    `SELECT preferred_city, notifications_enabled, promo_alerts, nearby_alerts, marketing_updates
+     FROM client_preferences
+     WHERE user_id = ?
+     LIMIT 1`,
+    [key]
+  );
+  return {
+    user_id: key,
+    preferred_city: row?.preferred_city || '',
+    notifications_enabled: Number(row?.notifications_enabled ?? 1) === 1,
+    promo_alerts: Number(row?.promo_alerts ?? 1) === 1,
+    nearby_alerts: Number(row?.nearby_alerts ?? 1) === 1,
+    marketing_updates: Number(row?.marketing_updates ?? 0) === 1,
+  };
+};
+
+export const saveClientPreferences = (userId, updates = {}) => {
+  const db = getDB();
+  const key = safeClientKey(userId);
+  const current = getClientPreferences(key);
+  const next = {
+    preferred_city: typeof updates.preferred_city === 'string' ? updates.preferred_city.trim() : current.preferred_city,
+    notifications_enabled:
+      typeof updates.notifications_enabled === 'boolean' ? (updates.notifications_enabled ? 1 : 0) : current.notifications_enabled ? 1 : 0,
+    promo_alerts: typeof updates.promo_alerts === 'boolean' ? (updates.promo_alerts ? 1 : 0) : current.promo_alerts ? 1 : 0,
+    nearby_alerts: typeof updates.nearby_alerts === 'boolean' ? (updates.nearby_alerts ? 1 : 0) : current.nearby_alerts ? 1 : 0,
+    marketing_updates:
+      typeof updates.marketing_updates === 'boolean' ? (updates.marketing_updates ? 1 : 0) : current.marketing_updates ? 1 : 0,
+  };
+
+  db.runSync(
+    `INSERT OR REPLACE INTO client_preferences
+     (user_id, preferred_city, notifications_enabled, promo_alerts, nearby_alerts, marketing_updates, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [
+      key,
+      next.preferred_city || null,
+      next.notifications_enabled,
+      next.promo_alerts,
+      next.nearby_alerts,
+      next.marketing_updates,
+    ]
+  );
+
+  return getClientPreferences(key);
+};
+
+export const getFavoriteStoreIds = (userId) => {
+  const db = getDB();
+  const key = safeClientKey(userId);
+  const rows = db.getAllSync('SELECT store_id FROM favorite_stores WHERE user_id = ? ORDER BY created_at DESC', [key]);
+  return rows.map((row) => row.store_id);
+};
+
+export const isFavoriteStore = (userId, storeId) => {
+  if (!storeId) return false;
+  const db = getDB();
+  const key = safeClientKey(userId);
+  const row = db.getFirstSync(
+    'SELECT id FROM favorite_stores WHERE user_id = ? AND store_id = ? LIMIT 1',
+    [key, storeId]
+  );
+  return Boolean(row?.id);
+};
+
+export const toggleFavoriteStore = (userId, storeId) => {
+  const db = getDB();
+  const key = safeClientKey(userId);
+  if (!storeId) return { isFavorite: false };
+  const exists = isFavoriteStore(key, storeId);
+  if (exists) {
+    db.runSync('DELETE FROM favorite_stores WHERE user_id = ? AND store_id = ?', [key, storeId]);
+    return { isFavorite: false };
+  }
+  db.runSync('INSERT OR IGNORE INTO favorite_stores (user_id, store_id) VALUES (?, ?)', [key, storeId]);
+  return { isFavorite: true };
+};
+
+export const getFavoriteStores = (userId) => {
+  const db = getDB();
+  const key = safeClientKey(userId);
+  return db.getAllSync(
+    `SELECT s.*
+     FROM favorite_stores f
+     JOIN stores s ON s.id = f.store_id
+     WHERE f.user_id = ?
+     ORDER BY f.created_at DESC`,
+    [key]
+  );
 };

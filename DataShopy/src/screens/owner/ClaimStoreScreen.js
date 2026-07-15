@@ -206,7 +206,7 @@ export default function ClaimStoreScreen({ navigation, route }) {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <StoreCard store={item} promoCount={0} onPress={() => {}} />
+            <StoreCard store={item} promoCount={0} onPress={() => requestClaim(item)} />
             <TouchableOpacity style={styles.claimBtn} onPress={() => requestClaim(item)} disabled={!canClaim}>
               <Text style={styles.claimBtnText}>{canClaim ? 'Solicitar reclamo' : 'No disponible'}</Text>
             </TouchableOpacity>

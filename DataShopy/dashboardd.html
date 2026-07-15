@@ -74,6 +74,20 @@
     border-top: 1px solid rgba(255,255,255,0.08);
     font-size: 11px; color: rgba(255,255,255,0.3);
   }
+  .sidebar-footer input {
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: var(--white);
+    border-radius: var(--radius);
+    padding: 9px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+  }
+  .sidebar-footer input::placeholder { color: rgba(255,255,255,0.35); }
+  .sidebar-footer .btn { width: 100%; justify-content: center; }
 
   /* ── Main ── */
   .main { margin-left: 220px; flex: 1; padding: 32px; }
@@ -310,7 +324,11 @@
         <span class="icon">◷</span> Reclamos
       </div>
     </nav>
-    <div class="sidebar-footer">v1.0 · DataShopy Admin</div>
+    <div class="sidebar-footer">
+      <div>v1.1 · DataShopy Admin</div>
+      <input id="admin-pin-input" type="password" placeholder="PIN admin (1234)" />
+      <button class="btn btn-outline" onclick="connectPanel()">Conectar panel</button>
+    </div>
   </aside>
 
   <!-- Main -->
@@ -401,22 +419,22 @@
     <div id="page-promos" class="page">
       <div class="page-header">
         <div class="page-title">Promociones</div>
-        <div class="page-sub">Crea y gestiona promociones para cualquier local (modo admin)</div>
+        <div class="page-sub">Vista de promos activas publicadas por dueños en la app</div>
       </div>
       <div class="card">
         <div class="card-header">
           <span class="card-title">Todas las promociones</span>
-          <button class="btn btn-primary btn-sm" onclick="openPromoModal()">+ Nueva promo</button>
+          <button class="btn btn-outline btn-sm" onclick="refreshPromos()">Actualizar</button>
         </div>
         <table>
           <thead>
-            <tr><th>Promoción</th><th>Local</th><th>Vence</th><th>Estado</th><th>Acciones</th></tr>
+            <tr><th>Promoción</th><th>Local</th><th>Vence</th><th>Estado</th></tr>
           </thead>
           <tbody id="promos-table"></tbody>
         </table>
         <div id="promos-empty" class="empty" style="display:none">
           <div class="big">🎉</div>
-          <p>Sin promociones activas.<br/>Crea una para que aparezca en la app.</p>
+          <p>Sin promociones activas.<br/>Los dueños las gestionan desde la app.</p>
         </div>
       </div>
     </div>
@@ -514,7 +532,7 @@
     <div id="page-claims" class="page">
       <div class="page-header">
         <div class="page-title">Reclamos de locales</div>
-        <div class="page-sub">Genera códigos para que los dueños reclamen su local en la app</div>
+        <div class="page-sub">Genera códigos para dueños y revisa solicitudes pendientes</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
         <div class="card">
@@ -543,14 +561,14 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Códigos activos</span></div>
+          <div class="card-header"><span class="card-title">Solicitudes pendientes</span></div>
           <table>
-            <thead><tr><th>Local</th><th>Código</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Local</th><th>Solicitante</th><th>Acciones</th></tr></thead>
             <tbody id="claims-table"></tbody>
           </table>
           <div id="claims-empty" class="empty" style="display:none">
-            <div class="big">🔑</div>
-            <p>No hay códigos generados aún.</p>
+            <div class="big">◷</div>
+            <p>No hay solicitudes pendientes por ahora.</p>
           </div>
         </div>
       </div>
@@ -688,42 +706,122 @@
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// ESTADO LOCAL (simula SQLite — en producción conectas
-// esto a tu backend Node/Express + better-sqlite3)
-// ═══════════════════════════════════════════════════════
-let stores = JSON.parse(localStorage.getItem('ds_stores') || '[]');
-let promos = JSON.parse(localStorage.getItem('ds_promos') || '[]');
-let claims = JSON.parse(localStorage.getItem('ds_claims') || '[]');
-let nextStoreId = parseInt(localStorage.getItem('ds_next_store') || '1');
-let nextPromoId = parseInt(localStorage.getItem('ds_next_promo') || '1');
-
+const PROJECT_URL = 'https://vwmdgxwxqedhhsqgxhoe.supabase.co';
+const ANON_KEY = 'sb_publishable_kTg7RHdR0-vOkNxAQb4fdA_zykt4ySY';
+const FUNCTIONS_URL = 'https://vwmdgxwxqedhhsqgxhoe.functions.supabase.co';
 const EMOJIS = ['🍕','🍔','🌮','🌯','🥗','🍣','🍜','🍰','☕','🧃','🍺','🥩','🌿','🛍️','👗','👟','💊','🏥','📱','💻','🎸','📚','🏋️','🐾','🎨','✂️','💈','🛒','🏪','🎉'];
 const COLORS = ['#EEEDFE','#E1F5EE','#FAEEDA','#FAECE7','#E6F1FB','#FBEAF0','#EAF3DE','#E8F0FF','#FFF3E0','#F3E5F5'];
 
-function save() {
-  localStorage.setItem('ds_stores', JSON.stringify(stores));
-  localStorage.setItem('ds_promos', JSON.stringify(promos));
-  localStorage.setItem('ds_claims', JSON.stringify(claims));
-  localStorage.setItem('ds_next_store', nextStoreId);
-  localStorage.setItem('ds_next_promo', nextPromoId);
+let stores = [];
+let promos = [];
+let pendingClaims = [];
+let adminPin = localStorage.getItem('ds_admin_pin') || '';
+let editingId = null;
+let deletingId = null;
+let qEmoji = '🏪';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function authHeaders() {
+  return {
+    apikey: ANON_KEY,
+    Authorization: `Bearer ${ANON_KEY}`,
+    'Content-Type': 'application/json',
+  };
+}
+
+async function callAdmin(action, payload = {}) {
+  if (!adminPin) throw new Error('Ingresa el PIN admin para conectar el panel.');
+  const res = await fetch(`${FUNCTIONS_URL}/admin-panel`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ pin: adminPin, action, ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.error || 'No se pudo conectar con el panel admin.');
+  }
+  return data;
+}
+
+async function fetchPromos() {
+  const res = await fetch(
+    `${PROJECT_URL}/rest/v1/promotions?select=id,title,tag,expires_at,is_active,store_id&is_active=eq.true&order=created_at.desc`,
+    { headers: authHeaders() }
+  );
+  if (!res.ok) throw new Error('No se pudieron cargar las promociones.');
+  return res.json();
+}
+
+async function loadRemoteData() {
+  if (!adminPin) {
+    renderDashboard();
+    return;
+  }
+
+  try {
+    const [storesRes, claimsRes, promosRes] = await Promise.all([
+      callAdmin('listStores'),
+      callAdmin('listClaims'),
+      fetchPromos().catch(() => []),
+    ]);
+
+    stores = Array.isArray(storesRes.stores) ? storesRes.stores : [];
+    pendingClaims = Array.isArray(claimsRes.claims) ? claimsRes.claims : [];
+    promos = Array.isArray(promosRes) ? promosRes : [];
+    renderCurrentPage();
+    showToast('Panel sincronizado ✓');
+  } catch (error) {
+    showToast(error.message || 'No se pudo sincronizar el panel');
+  }
+}
+
+function currentPageId() {
+  const active = document.querySelector('.page.active');
+  return active?.id?.replace('page-', '') || 'dashboard';
+}
+
+function renderCurrentPage() {
+  renderDashboard();
+  if (currentPageId() === 'stores') renderStoresTable();
+  if (currentPageId() === 'promos') renderPromosTable();
+  if (currentPageId() === 'claims') renderClaimsPage();
+}
+
+function connectPanel() {
+  const value = document.getElementById('admin-pin-input').value.trim();
+  if (!value) {
+    showToast('Ingresa el PIN admin');
+    return;
+  }
+  adminPin = value;
+  localStorage.setItem('ds_admin_pin', adminPin);
+  loadRemoteData();
 }
 
 function downloadAppJSON() {
-  const payload = stores.map(s => ({
+  const payload = stores.map((s) => ({
     name: s.name || '',
     category: s.category || 'Local',
-    description: s.desc || null,
+    description: s.description || null,
     address: s.address || null,
     phone: s.phone || null,
-    schedule_weekday: s.schedWeek || null,
-    schedule_weekend: s.schedWeekend || null,
+    schedule_weekday: s.schedule_weekday || null,
+    schedule_weekend: s.schedule_weekend || null,
     emoji: s.emoji || '🏪',
-    banner_color: s.color || '#EEEDFE',
+    banner_color: s.banner_color || '#EEEDFE',
     city: s.city || null,
-    country: null,
-    lat: null,
-    lng: null,
+    country: s.country || null,
+    lat: s.lat || null,
+    lng: s.lng || null,
+    claim_code: s.claim_code || null,
   }));
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -738,60 +836,66 @@ function downloadAppJSON() {
   showToast('JSON descargado ✓');
 }
 
-// ── Navegación ─────────────────────────────────────────
 function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.textContent.toLowerCase().includes(id === 'dashboard' ? 'dashboard' :
-        id === 'stores' ? 'locales' :
-        id === 'promos' ? 'promo' :
-        id === 'import' ? 'import' : 'reclam')) {
+  document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
+  document.getElementById(`page-${id}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((n) => {
+    if (
+      n.textContent.toLowerCase().includes(
+        id === 'dashboard' ? 'dashboard' : id === 'stores' ? 'locales' : id === 'promos' ? 'promo' : id === 'import' ? 'import' : 'reclam'
+      )
+    ) {
       n.classList.add('active');
     }
   });
-  if (id === 'dashboard') renderDashboard();
-  if (id === 'stores') renderStoresTable();
-  if (id === 'promos') renderPromosTable();
-  if (id === 'claims') renderClaimsPage();
+  renderCurrentPage();
 }
 
-// ── Dashboard ──────────────────────────────────────────
 function renderDashboard() {
-  const claimed = stores.filter(s => s.claimed).length;
+  const claimed = stores.filter((s) => s.claimed).length;
   document.getElementById('stat-total').textContent = stores.length;
   document.getElementById('stat-claimed').textContent = claimed;
   document.getElementById('stat-unclaimed').textContent = stores.length - claimed;
-  document.getElementById('stat-promos').textContent = promos.filter(p => p.active).length;
+  document.getElementById('stat-promos').textContent = promos.length;
 
   const tbody = document.getElementById('dash-recent');
-  const recent = [...stores].reverse().slice(0, 6);
+  const recent = [...stores].slice(0, 6);
   if (recent.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;font-size:12px">Sin locales aún</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;font-size:12px">Conecta el panel o crea tu primer local</td></tr>';
     return;
   }
-  tbody.innerHTML = recent.map(s => `
-    <tr>
-      <td><div class="store-name-cell">
-        <div class="store-emoji" style="background:${s.color}">${s.emoji}</div>
-        <div><div class="store-name">${s.name}</div><div class="store-cat">${s.category}</div></div>
-      </div></td>
-      <td style="font-size:12px">${s.city || '—'}</td>
-      <td style="font-size:12px">${s.city || '—'}</td>
-      <td><span class="badge ${s.claimed ? 'badge-claimed' : 'badge-unclaimed'}">${s.claimed ? 'Reclamado' : 'Sin reclamar'}</span></td>
-      <td><span class="badge badge-promo">${promos.filter(p=>p.storeId===s.id && p.active).length} promos</span></td>
-    </tr>`).join('');
+
+  tbody.innerHTML = recent
+    .map((s) => {
+      const storePromos = promos.filter((p) => Number(p.store_id) === Number(s.id)).length;
+      return `
+        <tr>
+          <td><div class="store-name-cell">
+            <div class="store-emoji" style="background:${escapeHtml(s.banner_color || '#EEEDFE')}">${escapeHtml(s.emoji || '🏪')}</div>
+            <div><div class="store-name">${escapeHtml(s.name)}</div><div class="store-cat">${escapeHtml(s.category || 'Local')}</div></div>
+          </div></td>
+          <td style="font-size:12px">${escapeHtml(s.category || 'Local')}</td>
+          <td style="font-size:12px">${escapeHtml(s.city || '—')}</td>
+          <td><span class="badge ${s.claimed ? 'badge-claimed' : 'badge-unclaimed'}">${s.claimed ? 'Reclamado' : 'Sin reclamar'}</span></td>
+          <td><span class="badge badge-promo">${storePromos} promos</span></td>
+        </tr>`;
+    })
+    .join('');
 }
 
-// ── Tabla de locales ───────────────────────────────────
 function renderStoresTable() {
-  const search = document.getElementById('store-search')?.value.toLowerCase() || '';
+  const search = (document.getElementById('store-search')?.value || '').toLowerCase();
   const catF = document.getElementById('store-cat-filter')?.value || '';
-  let filtered = stores.filter(s =>
-    (!search || s.name.toLowerCase().includes(search) || (s.city||'').toLowerCase().includes(search)) &&
-    (!catF || s.category === catF)
+  const filtered = stores.filter(
+    (s) =>
+      (!search ||
+        s.name.toLowerCase().includes(search) ||
+        (s.city || '').toLowerCase().includes(search) ||
+        (s.address || '').toLowerCase().includes(search)) &&
+      (!catF || s.category === catF)
   );
+
   const tbody = document.getElementById('stores-table');
   const empty = document.getElementById('stores-empty');
   if (filtered.length === 0) {
@@ -799,62 +903,81 @@ function renderStoresTable() {
     empty.style.display = 'block';
     return;
   }
+
   empty.style.display = 'none';
-  tbody.innerHTML = filtered.map(s => `
-    <tr>
-      <td><div class="store-name-cell">
-        <div class="store-emoji" style="background:${s.color}">${s.emoji}</div>
-        <div><div class="store-name">${s.name}</div><div class="store-cat">${s.category}</div></div>
-      </div></td>
-      <td style="font-size:12px">${s.city||'—'}</td>
-      <td style="font-size:12px">${s.phone||'—'}</td>
-      <td><span class="badge ${s.claimed ? 'badge-claimed' : 'badge-unclaimed'}">${s.claimed ? 'Reclamado' : 'Sin reclamar'}</span></td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-outline btn-sm" onclick="editStore(${s.id})">Editar</button>
-        <button class="btn btn-ghost btn-sm" onclick="openDeleteModal(${s.id})">Eliminar</button>
-      </td>
-    </tr>`).join('');
+  tbody.innerHTML = filtered
+    .map(
+      (s) => `
+      <tr>
+        <td><div class="store-name-cell">
+          <div class="store-emoji" style="background:${escapeHtml(s.banner_color || '#EEEDFE')}">${escapeHtml(s.emoji || '🏪')}</div>
+          <div>
+            <div class="store-name">${escapeHtml(s.name)}</div>
+            <div class="store-cat">${escapeHtml(s.claim_code || 'Sin código')}</div>
+          </div>
+        </div></td>
+        <td style="font-size:12px">${escapeHtml(s.city || '—')}</td>
+        <td style="font-size:12px">${escapeHtml(s.phone || '—')}</td>
+        <td><span class="badge ${s.claimed ? 'badge-claimed' : 'badge-unclaimed'}">${s.claimed ? 'Reclamado' : 'Sin reclamar'}</span></td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="editStore(${Number(s.id)})">Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="openDeleteModal(${Number(s.id)})">Eliminar</button>
+        </td>
+      </tr>`
+    )
+    .join('');
 }
 
-// ── Tabla de promos ────────────────────────────────────
 function renderPromosTable() {
   const tbody = document.getElementById('promos-table');
   const empty = document.getElementById('promos-empty');
-  if (promos.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  if (promos.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
   empty.style.display = 'none';
-  tbody.innerHTML = promos.map(p => {
-    const store = stores.find(s => s.id === p.storeId);
-    return `<tr>
-      <td><div class="store-name" style="font-size:12px">${p.title}</div><div class="store-cat">${p.tag||''}</div></td>
-      <td style="font-size:12px">${store ? store.name : '—'}</td>
-      <td style="font-size:12px">${p.expires||'Sin vencimiento'}</td>
-      <td><span class="badge ${p.active ? 'badge-claimed' : 'badge-unclaimed'}">${p.active ? 'Activa' : 'Inactiva'}</span></td>
-      <td style="display:flex;gap:6px">
-        <button class="btn btn-ghost btn-sm" onclick="togglePromo(${p.id})">${p.active ? 'Pausar' : 'Activar'}</button>
-        <button class="btn btn-ghost btn-sm" onclick="deletePromo(${p.id})">Eliminar</button>
-      </td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = promos
+    .map((p) => {
+      const store = stores.find((s) => Number(s.id) === Number(p.store_id));
+      return `<tr>
+        <td><div class="store-name" style="font-size:12px">${escapeHtml(p.title)}</div><div class="store-cat">${escapeHtml(p.tag || '')}</div></td>
+        <td style="font-size:12px">${escapeHtml(store?.name || '—')}</td>
+        <td style="font-size:12px">${escapeHtml(p.expires_at || 'Sin vencimiento')}</td>
+        <td><span class="badge badge-claimed">${p.is_active ? 'Activa' : 'Inactiva'}</span></td>
+      </tr>`;
+    })
+    .join('');
 }
 
-// ── Modal local ────────────────────────────────────────
-let editingId = null;
-const MODAL_EMOJIS = '🍕🍔🌮🌯🥗🍣🍜🍰☕🧃🍺🥩🌿🛍️👗👟💊🏥📱💻🎸📚🏋️🐾🎨✂️💈🛒🏪🎉'.split('');
+async function refreshPromos() {
+  try {
+    promos = await fetchPromos();
+    renderPromosTable();
+    renderDashboard();
+    showToast('Promos actualizadas ✓');
+  } catch (error) {
+    showToast(error.message || 'No se pudieron actualizar las promos');
+  }
+}
 
 function buildEmojiPicker(containerId, hiddenId) {
   const c = document.getElementById(containerId);
   const h = document.getElementById(hiddenId);
-  c.innerHTML = MODAL_EMOJIS.map(e => `<div class="emoji-opt ${h.value===e?'selected':''}" onclick="selectEmoji('${containerId}','${hiddenId}','${e}')">${e}</div>`).join('');
+  c.innerHTML = EMOJIS.map((e) => `<div class="emoji-opt ${h.value === e ? 'selected' : ''}" onclick="selectEmoji('${containerId}','${hiddenId}','${e}')">${e}</div>`).join('');
 }
+
 function selectEmoji(containerId, hiddenId, emoji) {
   document.getElementById(hiddenId).value = emoji;
   buildEmojiPicker(containerId, hiddenId);
 }
+
 function buildColorPicker() {
   const c = document.getElementById('s-color-picker');
   const h = document.getElementById('s-color');
-  c.innerHTML = COLORS.map(col => `<div class="color-opt ${h.value===col?'selected':''}" style="background:${col}" onclick="selectColor('${col}')"></div>`).join('');
+  c.innerHTML = COLORS.map((col) => `<div class="color-opt ${h.value === col ? 'selected' : ''}" style="background:${col}" onclick="selectColor('${col}')"></div>`).join('');
 }
+
 function selectColor(col) {
   document.getElementById('s-color').value = col;
   buildColorPicker();
@@ -863,244 +986,271 @@ function selectColor(col) {
 function openAddModal() {
   editingId = null;
   document.getElementById('modal-title').textContent = 'Nuevo local';
-  ['s-name','s-address','s-phone','s-sched-w','s-sched-e','s-desc','s-city'].forEach(id => document.getElementById(id).value = '');
+  ['s-name', 's-address', 's-phone', 's-sched-w', 's-sched-e', 's-desc', 's-city'].forEach((id) => (document.getElementById(id).value = ''));
+  document.getElementById('s-cat').value = 'Restaurante';
   document.getElementById('s-emoji').value = '🏪';
   document.getElementById('s-color').value = '#EEEDFE';
-  buildEmojiPicker('s-emoji-picker','s-emoji');
+  buildEmojiPicker('s-emoji-picker', 's-emoji');
   buildColorPicker();
-  showAlert('store-alert','','');
+  showAlert('store-alert', '', '');
   openModal('store-modal');
 }
 
 function editStore(id) {
-  const s = stores.find(x => x.id === id);
+  const s = stores.find((x) => Number(x.id) === Number(id));
   if (!s) return;
   editingId = id;
   document.getElementById('modal-title').textContent = 'Editar local';
-  document.getElementById('s-name').value = s.name;
-  document.getElementById('s-cat').value = s.category;
-  document.getElementById('s-city').value = s.city||'';
-  document.getElementById('s-address').value = s.address||'';
-  document.getElementById('s-phone').value = s.phone||'';
-  document.getElementById('s-sched-w').value = s.schedWeek||'';
-  document.getElementById('s-sched-e').value = s.schedWeekend||'';
-  document.getElementById('s-desc').value = s.desc||'';
-  document.getElementById('s-emoji').value = s.emoji||'🏪';
-  document.getElementById('s-color').value = s.color||'#EEEDFE';
-  buildEmojiPicker('s-emoji-picker','s-emoji');
+  document.getElementById('s-name').value = s.name || '';
+  document.getElementById('s-cat').value = s.category || 'Restaurante';
+  document.getElementById('s-city').value = s.city || '';
+  document.getElementById('s-address').value = s.address || '';
+  document.getElementById('s-phone').value = s.phone || '';
+  document.getElementById('s-sched-w').value = s.schedule_weekday || '';
+  document.getElementById('s-sched-e').value = s.schedule_weekend || '';
+  document.getElementById('s-desc').value = s.description || '';
+  document.getElementById('s-emoji').value = s.emoji || '🏪';
+  document.getElementById('s-color').value = s.banner_color || '#EEEDFE';
+  buildEmojiPicker('s-emoji-picker', 's-emoji');
   buildColorPicker();
-  showAlert('store-alert','','');
+  showAlert('store-alert', '', '');
   openModal('store-modal');
 }
 
-function saveStore() {
+async function saveStore() {
   const name = document.getElementById('s-name').value.trim();
   const city = document.getElementById('s-city').value.trim();
-  if (!name) { showAlert('store-alert','El nombre es obligatorio.','error'); return; }
-  if (!city) { showAlert('store-alert','La ciudad es obligatoria.','error'); return; }
-  const data = {
-    name, city,
+  if (!name) {
+    showAlert('store-alert', 'El nombre es obligatorio.', 'error');
+    return;
+  }
+  if (!city) {
+    showAlert('store-alert', 'La ciudad es obligatoria.', 'error');
+    return;
+  }
+
+  const store = {
+    name,
+    city,
     category: document.getElementById('s-cat').value,
     address: document.getElementById('s-address').value.trim(),
     phone: document.getElementById('s-phone').value.trim(),
-    schedWeek: document.getElementById('s-sched-w').value.trim(),
-    schedWeekend: document.getElementById('s-sched-e').value.trim(),
-    desc: document.getElementById('s-desc').value.trim(),
+    schedule_weekday: document.getElementById('s-sched-w').value.trim(),
+    schedule_weekend: document.getElementById('s-sched-e').value.trim(),
+    description: document.getElementById('s-desc').value.trim(),
     emoji: document.getElementById('s-emoji').value,
-    color: document.getElementById('s-color').value,
-    claimed: false,
+    banner_color: document.getElementById('s-color').value,
   };
-  if (editingId) {
-    const idx = stores.findIndex(s => s.id === editingId);
-    stores[idx] = { ...stores[idx], ...data };
-  } else {
-    data.id = nextStoreId++;
-    stores.push(data);
+
+  try {
+    await callAdmin('upsertStore', { storeId: editingId, store });
+    closeModal('store-modal');
+    await loadRemoteData();
+    showToast(editingId ? 'Local actualizado ✓' : 'Local agregado ✓');
+  } catch (error) {
+    showAlert('store-alert', error.message || 'No se pudo guardar el local.', 'error');
   }
-  save();
-  closeModal('store-modal');
-  renderStoresTable();
-  renderDashboard();
-  showToast(editingId ? 'Local actualizado ✓' : 'Local agregado ✓');
 }
 
-// ── Eliminar local ─────────────────────────────────────
-let deletingId = null;
 function openDeleteModal(id) {
   deletingId = id;
-  const s = stores.find(x => x.id === id);
+  const s = stores.find((x) => Number(x.id) === Number(id));
   document.getElementById('delete-name').textContent = s?.name || '';
   openModal('delete-modal');
 }
-function confirmDelete() {
-  stores = stores.filter(s => s.id !== deletingId);
-  promos = promos.filter(p => p.storeId !== deletingId);
-  save();
-  closeModal('delete-modal');
-  renderStoresTable();
-  renderDashboard();
-  showToast('Local eliminado');
+
+async function confirmDelete() {
+  try {
+    await callAdmin('deleteStore', { storeId: deletingId });
+    closeModal('delete-modal');
+    await loadRemoteData();
+    showToast('Local eliminado');
+  } catch (error) {
+    closeModal('delete-modal');
+    showToast(error.message || 'No se pudo eliminar el local');
+  }
 }
 
-// ── Promos ─────────────────────────────────────────────
-function openPromoModal() {
-  const sel = document.getElementById('p-store');
-  sel.innerHTML = stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  ['p-title','p-desc','p-tag','p-exp'].forEach(id => document.getElementById(id).value='');
-  showAlert('promo-alert','','');
-  openModal('promo-modal');
-}
-function savePromo() {
-  const title = document.getElementById('p-title').value.trim();
-  if (!title) { showAlert('promo-alert','El título es obligatorio.','error'); return; }
-  promos.push({
-    id: nextPromoId++,
-    storeId: parseInt(document.getElementById('p-store').value),
-    title,
-    desc: document.getElementById('p-desc').value.trim(),
-    tag: document.getElementById('p-tag').value.trim(),
-    expires: document.getElementById('p-exp').value,
-    active: true,
-  });
-  save();
-  closeModal('promo-modal');
-  renderPromosTable();
-  showToast('Promoción publicada ✓');
-}
-function togglePromo(id) {
-  const p = promos.find(x => x.id === id);
-  if (p) { p.active = !p.active; save(); renderPromosTable(); }
-}
-function deletePromo(id) {
-  promos = promos.filter(p => p.id !== id);
-  save(); renderPromosTable();
-}
-
-// ── Claims ─────────────────────────────────────────────
 function renderClaimsPage() {
   const sel = document.getElementById('claim-store-select');
-  const unclaimed = stores.filter(s => !s.claimed);
-  sel.innerHTML = '<option value="">— Elige un local —</option>' +
-    unclaimed.map(s => `<option value="${s.id}">${s.name} · ${s.city||''}</option>`).join('');
+  const unclaimed = stores.filter((s) => !s.claimed);
+  sel.innerHTML =
+    '<option value="">— Elige un local —</option>' +
+    unclaimed.map((s) => `<option value="${Number(s.id)}">${escapeHtml(s.name)} · ${escapeHtml(s.city || '')}</option>`).join('');
   document.getElementById('claim-result').style.display = 'none';
   renderClaimsTable();
 }
-function generateClaim() {
-  const storeId = parseInt(document.getElementById('claim-store-select').value);
-  if (!storeId) { showToast('Selecciona un local primero'); return; }
-  const code = Math.random().toString(36).substring(2,8).toUpperCase();
-  claims.push({ storeId, code, used: false, created: new Date().toLocaleDateString('es-CL') });
-  save();
-  document.getElementById('claim-code-display').textContent = code;
-  document.getElementById('claim-result').style.display = 'block';
-  renderClaimsTable();
+
+async function generateClaim() {
+  const storeId = Number(document.getElementById('claim-store-select').value);
+  if (!storeId) {
+    showToast('Selecciona un local primero');
+    return;
+  }
+
+  const code = `DS-${Math.floor(100000 + Math.random() * 900000)}`;
+  try {
+    await callAdmin('assignClaimCode', { storeId, claimCode: code });
+    document.getElementById('claim-code-display').textContent = code;
+    document.getElementById('claim-result').style.display = 'block';
+    await loadRemoteData();
+    showToast('Código generado ✓');
+  } catch (error) {
+    showToast(error.message || 'No se pudo generar el código');
+  }
 }
+
 function copyClaim() {
   navigator.clipboard.writeText(document.getElementById('claim-code-display').textContent);
   showToast('Código copiado ✓');
 }
+
 function renderClaimsTable() {
   const tbody = document.getElementById('claims-table');
   const empty = document.getElementById('claims-empty');
-  if (claims.length === 0) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  if (pendingClaims.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
   empty.style.display = 'none';
-  tbody.innerHTML = claims.map(c => {
-    const s = stores.find(x => x.id === c.storeId);
-    return `<tr>
-      <td style="font-size:12px">${s?.name||'Local eliminado'}</td>
-      <td><span class="claim-code" style="font-size:14px;padding:4px 10px">${c.code}</span></td>
-      <td><span class="badge ${c.used ? 'badge-claimed' : 'badge-unclaimed'}">${c.used ? 'Usado' : 'Pendiente'}</span></td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = pendingClaims
+    .map(
+      (c) => `<tr>
+      <td style="font-size:12px">${escapeHtml(c.store_name || 'Local')}</td>
+      <td style="font-size:12px">
+        <div class="store-name">${escapeHtml(c.owner_name || 'Dueño')}</div>
+        <div class="store-cat">${escapeHtml(c.owner_email || '')}</div>
+      </td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="reviewClaim(${Number(c.claim_id)}, 'approve')">Aprobar</button>
+        <button class="btn btn-ghost btn-sm" onclick="reviewClaim(${Number(c.claim_id)}, 'reject')">Rechazar</button>
+      </td>
+    </tr>`
+    )
+    .join('');
 }
 
-// ── CSV ────────────────────────────────────────────────
+async function reviewClaim(claimId, decision) {
+  const isApprove = decision === 'approve';
+  try {
+    await callAdmin('reviewClaim', { claimId, decision });
+    await loadRemoteData();
+    showToast(isApprove ? 'Reclamo aprobado ✓' : 'Reclamo rechazado');
+  } catch (error) {
+    showToast(error.message || 'No se pudo revisar el reclamo');
+  }
+}
+
 function downloadTemplate() {
   const headers = 'nombre,categoria,ciudad,direccion,telefono,horario_semana,horario_finde,descripcion,emoji,color_fondo';
   const example = 'La Pizzería del Centro,Restaurante,Temuco,Av. Alemania 0700,+56945678901,Lun-Vie 12:00-23:00,Sáb-Dom 13:00-21:00,Pizza artesanal al horno de leña,🍕,#EEEDFE';
   const blob = new Blob([headers + '\n' + example], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'datashopy_plantilla.csv'; a.click();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'datashopy_plantilla.csv';
+  a.click();
 }
+
 function handleDrop(e) {
   e.preventDefault();
   const file = e.dataTransfer.files[0];
   if (file) processCSV(file);
 }
+
 function handleCSV(input) {
   if (input.files[0]) processCSV(input.files[0]);
 }
+
 function processCSV(file) {
   const reader = new FileReader();
-  reader.onload = (e) => {
-    const lines = e.target.result.split('\n').filter(l => l.trim());
+  reader.onload = async (e) => {
+    const lines = String(e.target.result || '').split('\n').filter((l) => l.trim());
     const log = document.getElementById('csv-log');
     const bar = document.getElementById('csv-progress');
     const fill = document.getElementById('csv-fill');
-    log.style.display = 'block'; bar.style.display = 'block';
+    log.style.display = 'block';
+    bar.style.display = 'block';
     log.innerHTML = '';
-    let added = 0;
+
+    const imported = [];
     lines.slice(1).forEach((line, i) => {
-      const [name, category, city, address, phone, schedWeek, schedWeekend, desc, emoji, color] = line.split(',').map(v => v?.trim());
+      const [name, category, city, address, phone, schedWeek, schedWeekend, desc, emoji, color] = line.split(',').map((v) => v?.trim());
       if (!name) return;
-      stores.push({ id: nextStoreId++, name, category: category||'Otro', city, address, phone, schedWeek, schedWeekend, desc, emoji: emoji||'🏪', color: color||'#EEEDFE', claimed: false });
-      added++;
-      const pct = Math.round(((i+1)/(lines.length-1))*100);
-      fill.style.width = pct + '%';
-      log.innerHTML += `<div>✓ ${name} — ${city||'sin ciudad'}</div>`;
+      imported.push({
+        name,
+        category: category || 'Otro',
+        city,
+        address,
+        phone,
+        schedule_weekday: schedWeek,
+        schedule_weekend: schedWeekend,
+        description: desc,
+        emoji: emoji || '🏪',
+        banner_color: color || '#EEEDFE',
+      });
+      const pct = Math.round(((i + 1) / Math.max(lines.length - 1, 1)) * 100);
+      fill.style.width = `${pct}%`;
+      log.innerHTML += `<div>✓ ${escapeHtml(name)} — ${escapeHtml(city || 'sin ciudad')}</div>`;
       log.scrollTop = log.scrollHeight;
     });
-    save();
-    log.innerHTML += `<div style="margin-top:8px;color:#fff">─── ${added} locales importados ───</div>`;
-    renderDashboard();
-    showToast(`${added} locales importados ✓`);
+
+    try {
+      const res = await callAdmin('importStores', { stores: imported });
+      log.innerHTML += `<div style="margin-top:8px;color:#fff">─── +${res.inserted} / ~${res.updated} / omitidos ${res.skipped} ───</div>`;
+      await loadRemoteData();
+      showToast('Importación completada ✓');
+    } catch (error) {
+      log.innerHTML += `<div style="margin-top:8px;color:#ffb3b3">✗ ${escapeHtml(error.message || 'No se pudo importar')}</div>`;
+      showToast(error.message || 'No se pudo importar el CSV');
+    }
   };
   reader.readAsText(file, 'UTF-8');
 }
 
-// ── Carga rápida ───────────────────────────────────────
-let qEmoji = '🏪';
-(function buildQuickEmoji() {
-  // built in the HTML template area above, skip here
-})();
-
-function quickAdd() {
+async function quickAdd() {
   const name = document.getElementById('q-name').value.trim();
   const city = document.getElementById('q-city').value.trim();
-  if (!name || !city) { showAlert('quick-alert','Nombre y ciudad son obligatorios.','error'); return; }
-  stores.push({
-    id: nextStoreId++,
-    name, city,
-    category: document.getElementById('q-cat').value,
-    address: document.getElementById('q-address').value.trim(),
-    phone: document.getElementById('q-phone').value.trim(),
-    schedWeek: document.getElementById('q-sched').value.trim(),
-    desc: document.getElementById('q-desc').value.trim(),
-    emoji: qEmoji,
-    color: '#EEEDFE',
-    claimed: false,
-  });
-  save();
-  ['q-name','q-city','q-address','q-phone','q-sched','q-desc'].forEach(id => document.getElementById(id).value='');
-  showAlert('quick-alert', `"${name}" agregado correctamente.`, 'success');
-  renderDashboard();
-  showToast('Local agregado ✓');
+  if (!name || !city) {
+    showAlert('quick-alert', 'Nombre y ciudad son obligatorios.', 'error');
+    return;
+  }
+
+  try {
+    await callAdmin('upsertStore', {
+      store: {
+        name,
+        city,
+        category: document.getElementById('q-cat').value,
+        address: document.getElementById('q-address').value.trim(),
+        phone: document.getElementById('q-phone').value.trim(),
+        schedule_weekday: document.getElementById('q-sched').value.trim(),
+        description: document.getElementById('q-desc').value.trim(),
+        emoji: qEmoji,
+        banner_color: '#EEEDFE',
+      },
+    });
+    ['q-name', 'q-city', 'q-address', 'q-phone', 'q-sched', 'q-desc'].forEach((id) => (document.getElementById(id).value = ''));
+    showAlert('quick-alert', `"${name}" agregado correctamente.`, 'success');
+    await loadRemoteData();
+    showToast('Local agregado ✓');
+  } catch (error) {
+    showAlert('quick-alert', error.message || 'No se pudo agregar el local.', 'error');
+  }
 }
 
-// Init quick emoji picker
-document.addEventListener('DOMContentLoaded', () => {
-  const picker = document.getElementById('q-emoji-picker');
-  picker.innerHTML = MODAL_EMOJIS.map(e =>
-    `<div class="emoji-opt ${e==='🏪'?'selected':''}" onclick="qEmoji='${e}';document.querySelectorAll('#q-emoji-picker .emoji-opt').forEach(x=>x.classList.remove('selected'));this.classList.add('selected')">${e}</div>`
-  ).join('');
-});
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
 
-// ── Helpers ────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
 function showAlert(id, msg, type) {
   const el = document.getElementById(id);
-  el.textContent = msg; el.className = 'alert';
+  el.textContent = msg;
+  el.className = 'alert';
   if (type) el.classList.add(type, 'show');
 }
 
@@ -1110,21 +1260,34 @@ function showToast(msg) {
   if (!t) {
     t = document.createElement('div');
     t.id = 'toast';
-    t.style.cssText = 'position:fixed;bottom:28px;right:28px;background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:6px;font-size:12px;z-index:999;opacity:0;transition:opacity .2s;font-family:DM Mono,monospace';
+    t.style.cssText =
+      'position:fixed;bottom:28px;right:28px;background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:6px;font-size:12px;z-index:999;opacity:0;transition:opacity .2s;font-family:DM Mono,monospace';
     document.body.appendChild(t);
   }
-  t.textContent = msg; t.style.opacity = '1';
+  t.textContent = msg;
+  t.style.opacity = '1';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.style.opacity = '0', 2800);
+  toastTimer = setTimeout(() => (t.style.opacity = '0'), 2800);
 }
 
-// Close modal clicking outside
-document.querySelectorAll('.modal-overlay').forEach(o => {
-  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+document.querySelectorAll('.modal-overlay').forEach((o) => {
+  o.addEventListener('click', (e) => {
+    if (e.target === o) o.classList.remove('open');
+  });
 });
 
-// Init
-renderDashboard();
+document.addEventListener('DOMContentLoaded', () => {
+  const picker = document.getElementById('q-emoji-picker');
+  picker.innerHTML = EMOJIS.map(
+    (e) =>
+      `<div class="emoji-opt ${e === '🏪' ? 'selected' : ''}" onclick="qEmoji='${e}';document.querySelectorAll('#q-emoji-picker .emoji-opt').forEach(x=>x.classList.remove('selected'));this.classList.add('selected')">${e}</div>`
+  ).join('');
+  document.getElementById('admin-pin-input').value = adminPin;
+  buildEmojiPicker('s-emoji-picker', 's-emoji');
+  buildColorPicker();
+  renderDashboard();
+  if (adminPin) loadRemoteData();
+});
 </script>
 </body>
 </html>
