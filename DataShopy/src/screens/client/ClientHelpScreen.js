@@ -1,5 +1,6 @@
 import React from 'react';
-import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 
@@ -57,9 +58,9 @@ export default function ClientHelpScreen({ navigation }) {
           />
         </View>
 
-        <TouchableOpacity style={styles.linkBtn} onPress={() => Linking.openURL('https://www.openstreetmap.org')}>
-          <Ionicons name="globe-outline" size={18} color={colors.brandInk} />
-          <Text style={styles.linkBtnText}>Ver el mapa base en OpenStreetMap</Text>
+        <TouchableOpacity style={styles.linkBtn} onPress={() => Linking.openURL('https://www.google.com/maps')}>
+          <Ionicons name="map-outline" size={18} color={colors.primary} />
+          <Text style={styles.linkBtnText}>Abrir Google Maps</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

@@ -74,6 +74,44 @@ export default function EditStoreScreen({ navigation, route }) {
 
   const title = useMemo(() => (storeId ? 'Info de mi tienda' : 'Crear mi tienda'), [storeId]);
 
+  const saveLocationNow = async (payload = {}) => {
+    if (!owner?.id || !storeId) return false;
+    try {
+      const { error } = await supabase.from('stores').update(payload).eq('id', storeId);
+      if (error) throw error;
+      const { data: latest } = await supabase.from('stores').select('*').eq('owner_id', owner.id).limit(1).maybeSingle();
+      if (latest?.id) {
+        importCatalogStores({
+          stores: [
+            {
+              name: latest.name,
+              category: latest.category,
+              description: latest.description,
+              address: latest.address,
+              phone: latest.phone,
+              schedule_weekday: latest.schedule_weekday,
+              schedule_weekend: latest.schedule_weekend,
+              emoji: latest.emoji,
+              banner_color: latest.banner_color,
+              city: latest.city,
+              country: latest.country,
+              lat: latest.lat,
+              lng: latest.lng,
+              source: latest.source || 'supabase',
+              external_id: `sb:store/${latest.id}`,
+              claimed: latest.claimed ? 1 : 0,
+              claimed_at: latest.claimed_at,
+            },
+          ],
+          source: 'supabase',
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleUseMyLocation = async () => {
     try {
       setLocLoading(true);
@@ -98,6 +136,27 @@ export default function EditStoreScreen({ navigation, route }) {
         if (addr.trim()) setAddress(addr.trim());
       }
       setLocLoading(false);
+      if (storeId) {
+        const payload = {
+          lat: coords.latitude,
+          lng: coords.longitude,
+          city: newCity ? newCity : city.trim() || null,
+          country: newCountry ? newCountry : country.trim() || null,
+        };
+        Alert.alert('Ubicación detectada', '¿Quieres guardar esta ubicación ahora?', [
+          {
+            text: 'Guardar',
+            onPress: async () => {
+              setLocLoading(true);
+              const ok = await saveLocationNow(payload);
+              setLocLoading(false);
+              if (ok) Alert.alert('Listo', 'Ubicación actualizada en tu tienda.');
+              else Alert.alert('Error', 'No se pudo guardar la ubicación.');
+            },
+          },
+          { text: 'Después', style: 'cancel' },
+        ]);
+      }
     } catch {
       setLocLoading(false);
       Alert.alert('Error', 'No se pudo obtener tu ubicación.');

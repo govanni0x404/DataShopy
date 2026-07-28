@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Linking, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import { colors } from '../constants/theme';
 import { supabase } from '../supabase/client';
 import { getProfile } from '../supabase/profile';
@@ -130,6 +131,43 @@ export default function AppNavigator() {
   const [booting, setBooting] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [initialParams, setInitialParams] = useState(undefined);
+  const lastLocationPromptAtRef = useRef(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const ensureLocation = async () => {
+      try {
+        const existing = await Location.getForegroundPermissionsAsync();
+        if (existing?.granted) return;
+        const req = await Location.requestForegroundPermissionsAsync();
+        if (req?.granted) return;
+        if (!mounted) return;
+        const now = Date.now();
+        if (now - (lastLocationPromptAtRef.current || 0) < 30_000) return;
+        lastLocationPromptAtRef.current = now;
+        Alert.alert('Activa tu ubicación', 'DataShopy la usa para mostrar locales y promociones cercanas.', [
+          {
+            text: 'Abrir ajustes',
+            onPress: () => {
+              try {
+                Linking.openSettings();
+              } catch {}
+            },
+          },
+          { text: 'Reintentar', onPress: ensureLocation },
+          { text: 'Ahora no', style: 'cancel' },
+        ]);
+      } catch {}
+    };
+    ensureLocation();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') ensureLocation();
+    });
+    return () => {
+      mounted = false;
+      sub?.remove?.();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;

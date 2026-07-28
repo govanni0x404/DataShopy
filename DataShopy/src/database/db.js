@@ -149,6 +149,7 @@ export const initDB = async () => {
       notifications_enabled INTEGER DEFAULT 1,
       promo_alerts INTEGER DEFAULT 1,
       nearby_alerts INTEGER DEFAULT 1,
+      nearby_radius_km REAL DEFAULT 0.3,
       marketing_updates INTEGER DEFAULT 0,
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -172,6 +173,8 @@ export const initDB = async () => {
     { name: 'external_id', type: 'TEXT' },
     { name: 'source', type: 'TEXT' },
   ]);
+
+  ensureColumns(database, 'client_preferences', [{ name: 'nearby_radius_km', type: 'REAL DEFAULT 0.3' }]);
 
   const systemOwnerId = ensureSystemOwner(database);
   ensureIndexes(database);
@@ -1010,18 +1013,21 @@ export const getClientPreferences = (userId) => {
   const db = getDB();
   const key = safeClientKey(userId);
   const row = db.getFirstSync(
-    `SELECT preferred_city, notifications_enabled, promo_alerts, nearby_alerts, marketing_updates
+    `SELECT preferred_city, notifications_enabled, promo_alerts, nearby_alerts, nearby_radius_km, marketing_updates
      FROM client_preferences
      WHERE user_id = ?
      LIMIT 1`,
     [key]
   );
+  const radiusRaw = row?.nearby_radius_km;
+  const radiusNum = typeof radiusRaw === 'number' ? radiusRaw : radiusRaw ? Number(radiusRaw) : null;
   return {
     user_id: key,
     preferred_city: row?.preferred_city || '',
     notifications_enabled: Number(row?.notifications_enabled ?? 1) === 1,
     promo_alerts: Number(row?.promo_alerts ?? 1) === 1,
     nearby_alerts: Number(row?.nearby_alerts ?? 1) === 1,
+    nearby_radius_km: radiusNum != null && !Number.isNaN(radiusNum) ? radiusNum : 0.3,
     marketing_updates: Number(row?.marketing_updates ?? 0) === 1,
   };
 };
@@ -1030,26 +1036,36 @@ export const saveClientPreferences = (userId, updates = {}) => {
   const db = getDB();
   const key = safeClientKey(userId);
   const current = getClientPreferences(key);
+  const radiusCandidate =
+    typeof updates.nearby_radius_km === 'number'
+      ? updates.nearby_radius_km
+      : typeof updates.nearby_radius_km === 'string' && updates.nearby_radius_km.trim()
+        ? Number(updates.nearby_radius_km)
+        : null;
+  const radiusValue =
+    radiusCandidate != null && !Number.isNaN(radiusCandidate) ? Math.max(0.05, Math.min(10, radiusCandidate)) : current.nearby_radius_km;
   const next = {
     preferred_city: typeof updates.preferred_city === 'string' ? updates.preferred_city.trim() : current.preferred_city,
     notifications_enabled:
       typeof updates.notifications_enabled === 'boolean' ? (updates.notifications_enabled ? 1 : 0) : current.notifications_enabled ? 1 : 0,
     promo_alerts: typeof updates.promo_alerts === 'boolean' ? (updates.promo_alerts ? 1 : 0) : current.promo_alerts ? 1 : 0,
     nearby_alerts: typeof updates.nearby_alerts === 'boolean' ? (updates.nearby_alerts ? 1 : 0) : current.nearby_alerts ? 1 : 0,
+    nearby_radius_km: radiusValue,
     marketing_updates:
       typeof updates.marketing_updates === 'boolean' ? (updates.marketing_updates ? 1 : 0) : current.marketing_updates ? 1 : 0,
   };
 
   db.runSync(
     `INSERT OR REPLACE INTO client_preferences
-     (user_id, preferred_city, notifications_enabled, promo_alerts, nearby_alerts, marketing_updates, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+     (user_id, preferred_city, notifications_enabled, promo_alerts, nearby_alerts, nearby_radius_km, marketing_updates, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
     [
       key,
       next.preferred_city || null,
       next.notifications_enabled,
       next.promo_alerts,
       next.nearby_alerts,
+      next.nearby_radius_km,
       next.marketing_updates,
     ]
   );

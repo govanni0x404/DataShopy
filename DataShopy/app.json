@@ -16,7 +16,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Usamos tu ubicación para mostrar locales cercanos.",
-        "NSPhotoLibraryUsageDescription": "DataShopy necesita acceso a tus fotos para subir el logo, la portada y la galería del negocio."
+        "NSPhotoLibraryUsageDescription": "DataShopy necesita acceso a tus fotos para subir el logo, la portada y la galería del negocio.",
+        "LSApplicationQueriesSchemes": [
+          "comgooglemaps"
+        ]
       }
     },
     "android": {

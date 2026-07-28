@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 import { getClientPreferences, saveClientPreferences } from '../../database/db';
+
+const RADIUS_OPTIONS = [
+  { label: '100 m', value: 0.1 },
+  { label: '300 m', value: 0.3 },
+  { label: '500 m', value: 0.5 },
+  { label: '1 km', value: 1 },
+  { label: '2 km', value: 2 },
+];
 
 function SettingRow({ title, desc, value, onValueChange }) {
   return (
@@ -68,6 +77,27 @@ export default function ClientSettingsScreen({ navigation, route }) {
             onValueChange={(value) => updatePref('nearby_alerts', value)}
           />
 
+          {prefs.nearby_alerts && (
+            <View style={styles.radiusBox}>
+              <Text style={styles.radiusTitle}>Radio de cercanía</Text>
+              <Text style={styles.radiusDesc}>Elige a cuántos kilómetros se considera “cerca” para mostrarte promociones.</Text>
+              <View style={styles.radiusRow}>
+                {RADIUS_OPTIONS.map((opt) => {
+                  const active = Number(prefs.nearby_radius_km || 0.3) === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={String(opt.value)}
+                      style={[styles.radiusChip, active && styles.radiusChipActive]}
+                      onPress={() => updatePref('nearby_radius_km', opt.value)}
+                    >
+                      <Text style={[styles.radiusChipText, active && styles.radiusChipTextActive]}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
           <SettingRow
             title="Actualizaciones de producto"
             desc="Recibe avisos sobre cambios de DataShopy y funciones nuevas."
@@ -113,4 +143,19 @@ const styles = StyleSheet.create({
   },
   settingTitle: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 4 },
   settingDesc: { fontSize: 12, lineHeight: 18, color: colors.textSecondary },
+  radiusBox: { paddingTop: 12, paddingBottom: 16, borderBottomWidth: 0.5, borderBottomColor: colors.borderLight },
+  radiusTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
+  radiusDesc: { marginTop: 6, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
+  radiusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  radiusChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    backgroundColor: '#F2F2F2',
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+  },
+  radiusChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryMid },
+  radiusChipText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
+  radiusChipTextActive: { color: colors.primary },
 });

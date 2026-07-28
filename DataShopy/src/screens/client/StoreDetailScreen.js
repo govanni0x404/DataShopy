@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PromoCard from '../../components/PromoCard';
 import { colors, radius, spacing } from '../../constants/theme';
-import { getPromosByStore, getStoreById, importCatalogPromos, isFavoriteStore, toggleFavoriteStore, trackEvent } from '../../database/db';
+import { getPromosByStore, getStoreById, importCatalogPromos, importCatalogStores, isFavoriteStore, toggleFavoriteStore, trackEvent } from '../../database/db';
 import { supabase } from '../../supabase/client';
 
 export default function StoreDetailScreen({ navigation, route }) {
@@ -20,6 +21,58 @@ export default function StoreDetailScreen({ navigation, route }) {
     setFavorite(isFavoriteStore(userId, storeId));
     const claimed = Number(s?.claimed || 0) === 1;
     setPromos(claimed ? getPromosByStore(storeId) : []);
+  }, [storeId]);
+
+  useEffect(() => {
+    let mounted = true;
+    const syncStoreCoords = async () => {
+      if (!storeId) return;
+      const s = getStoreById(storeId);
+      if (!s) return;
+      const ext = String(s?.external_id || '');
+      if (!ext.startsWith('sb:store/')) return;
+      const supaStoreId = Number(ext.replace('sb:store/', ''));
+      if (!supaStoreId || Number.isNaN(supaStoreId)) return;
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at')
+          .eq('id', supaStoreId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data?.id) return;
+        importCatalogStores({
+          stores: [
+            {
+              name: data.name,
+              category: data.category,
+              description: data.description,
+              address: data.address,
+              phone: data.phone,
+              schedule_weekday: data.schedule_weekday,
+              schedule_weekend: data.schedule_weekend,
+              emoji: data.emoji,
+              banner_color: data.banner_color,
+              city: data.city,
+              country: data.country,
+              lat: data.lat,
+              lng: data.lng,
+              source: data.source || 'supabase',
+              external_id: `sb:store/${data.id}`,
+              claimed: data.claimed ? 1 : 0,
+              claimed_at: data.claimed_at,
+            },
+          ],
+          source: 'supabase',
+        });
+        if (!mounted) return;
+        setStore(getStoreById(storeId));
+      } catch {}
+    };
+    syncStoreCoords();
+    return () => {
+      mounted = false;
+    };
   }, [storeId]);
 
   useEffect(() => {
@@ -78,12 +131,36 @@ export default function StoreDetailScreen({ navigation, route }) {
 
   const openDirections = async () => {
     if (!store) return;
-    const lat = typeof store.lat === 'number' ? store.lat : store.lat ? Number(store.lat) : null;
-    const lng = typeof store.lng === 'number' ? store.lng : store.lng ? Number(store.lng) : null;
-    const hasCoords = lat != null && !Number.isNaN(lat) && lng != null && !Number.isNaN(lng);
-    const destination = hasCoords
-      ? `${lat},${lng}`
-      : [store.address, store.city, store.country].filter(Boolean).join(', ') || store.name || '';
+    let lat = typeof store.lat === 'number' ? store.lat : store.lat ? Number(store.lat) : null;
+    let lng = typeof store.lng === 'number' ? store.lng : store.lng ? Number(store.lng) : null;
+    let hasCoords = lat != null && !Number.isNaN(lat) && lng != null && !Number.isNaN(lng);
+    let destinationLabel =
+      [store.address, store.city, store.country].filter(Boolean).join(', ') || (store.name ? String(store.name).trim() : '');
+    const ext = String(store?.external_id || '');
+    const isSb = ext.startsWith('sb:store/');
+    const supaStoreId = isSb ? Number(ext.replace('sb:store/', '')) : null;
+    if (!hasCoords && isSb && supaStoreId && !Number.isNaN(supaStoreId)) {
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('lat,lng,address,city,country,name')
+          .eq('id', supaStoreId)
+          .maybeSingle();
+        if (error) throw error;
+        const nextLat = typeof data?.lat === 'number' ? data.lat : data?.lat ? Number(data.lat) : null;
+        const nextLng = typeof data?.lng === 'number' ? data.lng : data?.lng ? Number(data.lng) : null;
+        const ok = nextLat != null && !Number.isNaN(nextLat) && nextLng != null && !Number.isNaN(nextLng);
+        if (ok) {
+          lat = nextLat;
+          lng = nextLng;
+          hasCoords = true;
+        }
+        destinationLabel =
+          [data?.address, data?.city, data?.country].filter(Boolean).join(', ') || (data?.name ? String(data.name).trim() : destinationLabel);
+      } catch {}
+    }
+    const destinationByCoords = hasCoords ? `${lat},${lng}` : '';
+    const destinationByAddress = destinationLabel;
     try {
       trackEvent('directions_click', {
         storeId,
@@ -97,12 +174,52 @@ export default function StoreDetailScreen({ navigation, route }) {
         },
       });
     } catch {}
-    const url = hasCoords
-      ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=18/${encodeURIComponent(
-          lat
-        )}/${encodeURIComponent(lng)}`
-      : `https://www.openstreetmap.org/search?query=${encodeURIComponent(destination)}`;
-    Linking.openURL(url);
+
+    const openGoogleMaps = async ({ destination, isCoords }) => {
+      const webDestination = isCoords ? destination : encodeURIComponent(destination);
+      const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${webDestination}&travelmode=driving`;
+      const googleMapsAppUrl =
+        Platform.OS === 'ios'
+          ? `comgooglemaps://?daddr=${isCoords ? destination : encodeURIComponent(destination)}&directionsmode=driving`
+          : isCoords
+            ? `google.navigation:q=loc:${destination}&mode=d`
+            : `google.navigation:q=${encodeURIComponent(destination)}&mode=d`;
+      try {
+        const can = await Linking.canOpenURL(googleMapsAppUrl);
+        if (can) {
+          await Linking.openURL(googleMapsAppUrl);
+          return;
+        }
+      } catch {}
+      Linking.openURL(fallbackUrl);
+    };
+
+    if (hasCoords && destinationByAddress) {
+      Alert.alert('Abrir ruta', '¿Qué destino quieres usar?', [
+        {
+          text:
+            typeof lat === 'number' && typeof lng === 'number' && !Number.isNaN(lat) && !Number.isNaN(lng)
+              ? `Ubicación exacta (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+              : 'Ubicación exacta',
+          onPress: () => openGoogleMaps({ destination: destinationByCoords, isCoords: true }),
+        },
+        { text: 'Dirección escrita', onPress: () => openGoogleMaps({ destination: destinationByAddress, isCoords: false }) },
+        { text: 'Cancelar', style: 'cancel' },
+      ]);
+      return;
+    }
+
+    if (hasCoords) {
+      openGoogleMaps({ destination: destinationByCoords, isCoords: true });
+      return;
+    }
+
+    if (destinationByAddress) {
+      openGoogleMaps({ destination: destinationByAddress, isCoords: false });
+      return;
+    }
+
+    Alert.alert('Destino no disponible', 'Este local no tiene dirección ni coordenadas guardadas.');
   };
 
   const coords = useMemo(() => {
@@ -113,13 +230,7 @@ export default function StoreDetailScreen({ navigation, route }) {
     return ok ? { lat, lng } : null;
   }, [store]);
 
-  const mapImageUrl = useMemo(() => {
-    if (!coords) return null;
-    const { lat, lng } = coords;
-    return `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(
-      `${lat},${lng}`
-    )}&zoom=16&size=600x300&markers=${encodeURIComponent(`${lat},${lng},red-pushpin`)}`;
-  }, [coords]);
+  const mapImageUrl = useMemo(() => null, []);
 
   const isClaimed = useMemo(() => Number(store?.claimed || 0) === 1, [store?.claimed]);
   const galleryUrls = useMemo(() => {
@@ -251,13 +362,13 @@ export default function StoreDetailScreen({ navigation, route }) {
                 <Image source={{ uri: mapImageUrl }} style={styles.mapImage} resizeMode="cover" />
                 <View style={styles.mapOverlay}>
                   <Ionicons name="map-outline" size={18} color={colors.white} />
-                  <Text style={styles.mapOverlayText}>Abrir en OpenStreetMap</Text>
+                  <Text style={styles.mapOverlayText}>Abrir en Google Maps</Text>
                 </View>
               </>
             ) : (
               <>
                 <Ionicons name="map-outline" size={34} color={colors.primary} />
-                <Text style={styles.mapText}>Ver en OpenStreetMap</Text>
+                <Text style={styles.mapText}>Ver en Google Maps</Text>
               </>
             )}
           </TouchableOpacity>

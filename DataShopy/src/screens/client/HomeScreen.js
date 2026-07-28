@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import CategoryFilter from '../../components/CategoryFilter';
@@ -44,6 +44,8 @@ export default function HomeScreen({ navigation, route }) {
   const [preferredCity, setPreferredCity] = useState('');
   const [cityFallback, setCityFallback] = useState(false);
   const [googleNote, setGoogleNote] = useState('');
+  const [nearbyPromo, setNearbyPromo] = useState(null); // { storeId, storeName, promoCount, distanceKm }
+  const [nearbyIgnore, setNearbyIgnore] = useState({ storeId: null, until: 0 });
   const effectiveCity = (preferredCity || userCity || '').trim();
 
   const selectedCategoryLabel = useMemo(() => {
@@ -122,6 +124,7 @@ export default function HomeScreen({ navigation, route }) {
 
   useEffect(() => {
     let mounted = true;
+    let subscription = null;
     const loadLocation = async () => {
       try {
         const perm = await Location.requestForegroundPermissionsAsync();
@@ -145,6 +148,18 @@ export default function HomeScreen({ navigation, route }) {
         const g = geo?.[0];
         const c = g?.city || g?.subregion || g?.region || null;
         setUserCity(c);
+
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            distanceInterval: 35,
+          },
+          (nextPos) => {
+            if (!mounted) return;
+            const next = { lat: nextPos.coords.latitude, lng: nextPos.coords.longitude };
+            setUserCoords(next);
+          }
+        );
       } catch {
         if (mounted) setLocationStatus('denied');
       }
@@ -152,8 +167,96 @@ export default function HomeScreen({ navigation, route }) {
     loadLocation();
     return () => {
       mounted = false;
+      if (subscription?.remove) subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      const prefs = getClientPreferences(user?.id);
+      const radiusKm = typeof prefs.nearby_radius_km === 'number' ? prefs.nearby_radius_km : 0.3;
+      if (!prefs.notifications_enabled || !prefs.nearby_alerts) {
+        if (mounted) setNearbyPromo(null);
+        return;
+      }
+      if (!userCoords) {
+        if (mounted) setNearbyPromo(null);
+        return;
+      }
+      const now = Date.now();
+      if (nearbyIgnore?.until && now < nearbyIgnore.until) return;
+
+      let candidate = null;
+      for (const s of stores) {
+        const claimed = Number(s?.claimed || 0) === 1;
+        if (!claimed) continue;
+        const d = s?._distanceKm;
+        const ok = typeof d === 'number' && !Number.isNaN(d);
+        if (!ok) continue;
+        if (d > radiusKm) continue;
+        if (!candidate || d < candidate._distanceKm) candidate = s;
+      }
+
+      if (!candidate?.id) {
+        if (mounted) setNearbyPromo(null);
+        return;
+      }
+
+      const alreadyShown = nearbyPromo?.storeId === candidate.id;
+      if (alreadyShown) return;
+
+      const localCount = Number(promoCounts?.[candidate.id] || 0);
+      if (localCount > 0) {
+        if (!mounted) return;
+        setNearbyPromo({
+          storeId: candidate.id,
+          storeName: candidate.name || 'Un local',
+          promoCount: localCount,
+          distanceKm: candidate._distanceKm,
+        });
+        return;
+      }
+
+      const ext = String(candidate?.external_id || '');
+      if (!ext.startsWith('sb:store/')) {
+        if (mounted) setNearbyPromo(null);
+        return;
+      }
+      const supaStoreId = Number(ext.replace('sb:store/', ''));
+      if (!supaStoreId || Number.isNaN(supaStoreId)) {
+        if (mounted) setNearbyPromo(null);
+        return;
+      }
+
+      try {
+        const { count, error } = await supabase
+          .from('promotions')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', supaStoreId)
+          .eq('is_active', true);
+        if (error) throw error;
+        const promoCount = count || 0;
+        if (!mounted) return;
+        if (promoCount <= 0) {
+          setNearbyPromo(null);
+          return;
+        }
+        setNearbyPromo({
+          storeId: candidate.id,
+          storeName: candidate.name || 'Un local',
+          promoCount,
+          distanceKm: candidate._distanceKm,
+        });
+      } catch {
+        if (mounted) setNearbyPromo(null);
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [stores, promoCounts, userCoords, user?.id, nearbyIgnore?.until]);
 
   useEffect(() => {
     let mounted = true;
@@ -256,6 +359,37 @@ export default function HomeScreen({ navigation, route }) {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View>
+            {!!nearbyPromo && (
+              <View style={styles.nearbyWrap}>
+                <View style={styles.nearbyCard}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={styles.nearbyTitle}>Promos cerca de ti</Text>
+                    <Text style={styles.nearbyDesc}>
+                      {nearbyPromo.promoCount} {nearbyPromo.promoCount === 1 ? 'promo' : 'promos'} en {nearbyPromo.storeName}
+                      {typeof nearbyPromo.distanceKm === 'number' && !Number.isNaN(nearbyPromo.distanceKm)
+                        ? ` · a ${Math.round(nearbyPromo.distanceKm * 1000)} m`
+                        : ''}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.nearbyBtn}
+                    onPress={() => navigation.navigate('StoreDetail', { storeId: nearbyPromo.storeId, userId: user?.id || null })}
+                  >
+                    <Text style={styles.nearbyBtnText}>Ver</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.nearbyClose}
+                    onPress={() => {
+                      const until = Date.now() + 10 * 60 * 1000;
+                      setNearbyIgnore({ storeId: nearbyPromo.storeId, until });
+                      setNearbyPromo(null);
+                    }}
+                  >
+                    <Ionicons name="close" size={16} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             <View style={styles.heroWrap}>
               <View style={styles.heroCard}>
                 <BrandMark
@@ -344,6 +478,29 @@ const styles = StyleSheet.create({
   headerEyebrow: { fontSize: 11, color: colors.textTertiary, marginBottom: 1 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.brandInk },
   headerIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  nearbyWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  nearbyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primaryMid,
+    backgroundColor: colors.primarySoft,
+    paddingVertical: 12,
+    paddingLeft: 14,
+    paddingRight: 8,
+  },
+  nearbyTitle: { fontSize: 13, fontWeight: '800', color: colors.brandInk },
+  nearbyDesc: { marginTop: 4, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
+  nearbyBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    marginRight: 8,
+  },
+  nearbyBtnText: { fontSize: 12, fontWeight: '800', color: colors.white },
+  nearbyClose: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   heroWrap: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
