@@ -3,7 +3,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { importCatalogPromos, importCatalogStores } from '../../database/db';
 import { supabase } from '../../supabase/client';
@@ -22,6 +23,7 @@ export default function ManagePromosScreen({ navigation, route }) {
 
   const [storeId, setStoreId] = useState(storeIdFromRoute || null);
   const [promos, setPromos] = useState([]);
+  const [busy, setBusy] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -144,6 +146,7 @@ export default function ManagePromosScreen({ navigation, route }) {
     };
 
     const run = async () => {
+      setBusy(true);
       try {
         if (editingId) {
           const { error } = await supabase.from('promotions').update(payload).eq('id', editingId);
@@ -153,9 +156,11 @@ export default function ManagePromosScreen({ navigation, route }) {
           if (error) throw error;
         }
         resetForm();
-        load();
+        await load();
       } catch (e) {
         Alert.alert('Error', e?.message || 'No se pudo guardar la promoción.');
+      } finally {
+        setBusy(false);
       }
     };
     run();
@@ -169,12 +174,15 @@ export default function ManagePromosScreen({ navigation, route }) {
         style: 'destructive',
         onPress: () => {
           const run = async () => {
+            setBusy(true);
             try {
               const { error } = await supabase.from('promotions').update({ is_active: false }).eq('id', promo.id);
               if (error) throw error;
-              load();
+              await load();
             } catch (e) {
               Alert.alert('Error', e?.message || 'No se pudo eliminar.');
+            } finally {
+              setBusy(false);
             }
           };
           run();
@@ -198,9 +206,9 @@ export default function ManagePromosScreen({ navigation, route }) {
           {!storeId ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyTitle}>Aún no tienes tienda</Text>
-              <Text style={styles.emptyDesc}>Crea tu tienda para empezar a publicar promociones.</Text>
-              <TouchableOpacity style={styles.btnPrimary} onPress={() => navigation.navigate('EditStore', { owner })}>
-                <Text style={styles.btnText}>Crear mi tienda</Text>
+              <Text style={styles.emptyDesc}>Reclama tu negocio para empezar a publicar promociones.</Text>
+              <TouchableOpacity style={styles.btnPrimary} onPress={() => navigation.navigate('ClaimStore', { owner })}>
+                <Text style={styles.btnText}>Reclamar negocio</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -295,6 +303,7 @@ export default function ManagePromosScreen({ navigation, route }) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      <LoadingOverlay visible={busy} label="Guardando..." />
     </SafeAreaView>
   );
 }

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, SafeAreaView, KeyboardAvoidingView,
+  StyleSheet, KeyboardAvoidingView,
   Platform, Alert, ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
-import BrandMark from '../../components/BrandMark';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -64,25 +65,6 @@ export default function LoginScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.heroCard}>
-            <BrandMark
-              size={82}
-              dark
-              title="DataShopy"
-              subtitle="Descubre, compara y encuentra negocios cercanos con promociones reales."
-            />
-            <View style={styles.heroTags}>
-              <View style={styles.heroTag}>
-                <Ionicons name="location-outline" size={14} color={colors.brandAccent} />
-                <Text style={styles.heroTagText}>Locales cercanos</Text>
-              </View>
-              <View style={styles.heroTag}>
-                <Ionicons name="pricetags-outline" size={14} color={colors.brandAccent} />
-                <Text style={styles.heroTagText}>Promos activas</Text>
-              </View>
-            </View>
-          </View>
-
           <View style={styles.form}>
             <Text style={styles.formTitle}>Ingresa a tu cuenta</Text>
             <Text style={styles.formSub}>Tu catálogo y favoritos quedan listos al instante.</Text>
@@ -144,6 +126,7 @@ export default function LoginScreen({ navigation }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <LoadingOverlay visible={loading} label="Ingresando..." />
     </SafeAreaView>
   );
 }
@@ -151,34 +134,9 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   scroll: { flexGrow: 1, paddingBottom: 28 },
-  heroCard: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 18,
-    borderRadius: 28,
-    backgroundColor: colors.brandInk,
-    paddingHorizontal: 22,
-    paddingVertical: 26,
-  },
-  heroTags: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
-    marginTop: 16,
-    flexWrap: 'wrap',
-  },
-  heroTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.full,
-    backgroundColor: 'rgba(245,242,236,0.08)',
-  },
-  heroTagText: { color: colors.brandPaper, fontSize: 12, fontWeight: '500' },
   form: {
     marginHorizontal: 20,
+    marginTop: 24,
     paddingHorizontal: 18,
     paddingVertical: 18,
     borderRadius: 24,

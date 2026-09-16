@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
@@ -137,9 +138,9 @@ export default function OwnerStatsScreen({ navigation, route }) {
         {!store?.id ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Todavía no hay estadísticas</Text>
-            <Text style={styles.emptyDesc}>Necesitas una tienda activa para registrar visitas, llamadas y rutas.</Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('EditStore', { owner })}>
-              <Text style={styles.primaryBtnText}>Crear mi tienda</Text>
+            <Text style={styles.emptyDesc}>Necesitas reclamar una tienda activa para registrar visitas, llamadas y rutas.</Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('ClaimStore', { owner })}>
+              <Text style={styles.primaryBtnText}>Reclamar negocio</Text>
             </TouchableOpacity>
           </View>
         ) : (

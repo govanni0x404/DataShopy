@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,11 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
-import BrandMark from '../../components/BrandMark';
 
 export default function OwnerLoginScreen({ navigation }) {
   const [mode, setMode] = useState('login'); // login | register
@@ -27,12 +27,6 @@ export default function OwnerLoginScreen({ navigation }) {
   const [confirm, setConfirm] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const title = useMemo(() => (isRegister ? 'Registrar tienda' : 'Panel de tienda'), [isRegister]);
-  const subtitle = useMemo(
-    () => (isRegister ? 'Crea tu acceso para administrar tu local en DataShopy.' : 'Administra tu local en DataShopy'),
-    [isRegister]
-  );
 
   const goOwnerApp = (owner) => {
     navigation.replace('OwnerApp', { owner });
@@ -111,25 +105,6 @@ export default function OwnerLoginScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          <View style={styles.heroCard}>
-            <BrandMark
-              size={76}
-              dark
-              title={title}
-              subtitle={subtitle}
-            />
-            <View style={styles.heroMeta}>
-              <View style={styles.heroPill}>
-                <Ionicons name="analytics-outline" size={14} color={colors.brandAccent} />
-                <Text style={styles.heroPillText}>Métricas reales</Text>
-              </View>
-              <View style={styles.heroPill}>
-                <Ionicons name="shield-checkmark-outline" size={14} color={colors.brandAccent} />
-                <Text style={styles.heroPillText}>Reclamo seguro</Text>
-              </View>
-            </View>
-          </View>
-
           <View style={styles.form}>
             <Text style={styles.formTitle}>{isRegister ? 'Activa tu negocio' : 'Entrar al panel de dueño'}</Text>
             <Text style={styles.formSub}>
@@ -235,34 +210,16 @@ export default function OwnerLoginScreen({ navigation }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <LoadingOverlay visible={loading} label={isRegister ? 'Creando tu cuenta...' : 'Ingresando...'} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  heroCard: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 18,
-    borderRadius: 28,
-    backgroundColor: colors.brandInk,
-    paddingHorizontal: 22,
-    paddingVertical: 24,
-  },
-  heroMeta: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' },
-  heroPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radius.full,
-    backgroundColor: 'rgba(245,242,236,0.08)',
-  },
-  heroPillText: { color: colors.brandPaper, fontSize: 12, fontWeight: '500' },
   form: {
     marginHorizontal: 20,
+    marginTop: 24,
     marginBottom: 24,
     paddingHorizontal: 18,
     paddingVertical: 18,

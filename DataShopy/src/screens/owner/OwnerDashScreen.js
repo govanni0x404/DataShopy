@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 
 export default function OwnerDashScreen({ navigation, route }) {
   const owner = route.params?.owner;
   const [store, setStore] = useState(null);
+  const [signingOut, setSigningOut] = useState(false);
   const [activePromos, setActivePromos] = useState(0);
   const [visitsToday, setVisitsToday] = useState(0);
   const [callClicksToday, setCallClicksToday] = useState(0);
@@ -116,14 +119,12 @@ export default function OwnerDashScreen({ navigation, route }) {
         <Text style={styles.sectionLabel}>Gestión</Text>
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() =>
-            store?.id ? navigation.navigate('ManagePromos', { owner, storeId: store?.id }) : navigation.navigate('EditStore', { owner })
-          }
+          onPress={() => navigation.navigate('ManagePromos', { owner, storeId: store?.id })}
         >
           <View style={styles.menuIcon}>
             <Ionicons name="pricetags-outline" size={18} color={colors.primary} />
           </View>
-          <Text style={styles.menuLabel}>{store?.id ? 'Mis promociones' : 'Crear tienda para promos'}</Text>
+          <Text style={styles.menuLabel}>Mis promociones</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
@@ -131,17 +132,19 @@ export default function OwnerDashScreen({ navigation, route }) {
           <View style={styles.menuIcon}>
             <Ionicons name="storefront-outline" size={18} color={colors.primary} />
           </View>
-          <Text style={styles.menuLabel}>{store?.id ? 'Info de mi tienda' : 'Crear mi tienda'}</Text>
+          <Text style={styles.menuLabel}>Info de mi tienda</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClaimStore', { owner })}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
-          </View>
-          <Text style={styles.menuLabel}>Reclamar negocio</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-        </TouchableOpacity>
+        {!store?.id && (
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClaimStore', { owner })}>
+            <View style={styles.menuIcon}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.menuLabel}>Reclamar negocio</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('OwnerBranding', { owner })}>
           <View style={styles.menuIcon}>
@@ -162,12 +165,14 @@ export default function OwnerDashScreen({ navigation, route }) {
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutItem]}
           onPress={async () => {
+            setSigningOut(true);
             try {
               await supabase.auth.signOut();
             } catch {}
             const root = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
             if (root?.replace) root.replace('OwnerLogin');
             else navigation.navigate('OwnerLogin');
+            setSigningOut(false);
           }}
         >
           <View style={[styles.menuIcon, styles.logoutIcon]}>
@@ -176,6 +181,7 @@ export default function OwnerDashScreen({ navigation, route }) {
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
+      <LoadingOverlay visible={signingOut} label="Cerrando sesión..." />
     </SafeAreaView>
   );
 }

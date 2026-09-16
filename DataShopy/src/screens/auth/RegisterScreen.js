@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  SafeAreaView, KeyboardAvoidingView, Platform, Alert, ScrollView,
+  KeyboardAvoidingView, Platform, Alert, ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { upsertProfile } from '../../supabase/profile';
@@ -13,6 +15,8 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirm) {
@@ -27,6 +31,7 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
+    setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
@@ -51,6 +56,8 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert('¡Listo!', 'Tu cuenta fue creada. Ya puedes ingresar.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo crear la cuenta.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,13 +83,32 @@ export default function RegisterScreen({ navigation }) {
             <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="tu@correo.com" placeholderTextColor={colors.textTertiary} keyboardType="email-address" autoCapitalize="none" />
 
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Mínimo 6 caracteres" placeholderTextColor={colors.textTertiary} secureTextEntry />
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor={colors.textTertiary}
+                secureTextEntry={!showPass}
+              />
+              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(!showPass)}>
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.label}>Confirmar contraseña</Text>
-            <TextInput style={styles.input} value={confirm} onChangeText={setConfirm} placeholder="Repite tu contraseña" placeholderTextColor={colors.textTertiary} secureTextEntry />
+            <TextInput
+              style={styles.input}
+              value={confirm}
+              onChangeText={setConfirm}
+              placeholder="Repite tu contraseña"
+              placeholderTextColor={colors.textTertiary}
+              secureTextEntry={!showPass}
+            />
 
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister}>
-              <Text style={styles.btnText}>Crear cuenta</Text>
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister} disabled={loading}>
+              <Text style={styles.btnText}>{loading ? 'Creando cuenta...' : 'Crear cuenta'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -91,6 +117,7 @@ export default function RegisterScreen({ navigation }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <LoadingOverlay visible={loading} label="Creando tu cuenta..." />
     </SafeAreaView>
   );
 }
@@ -104,6 +131,8 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 24, lineHeight: 20 },
   label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
   input: { borderWidth: 0.5, borderColor: colors.border, borderRadius: 12, padding: 12, fontSize: 14, color: colors.text },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  eyeBtn: { padding: 10 },
   btnPrimary: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 24, marginBottom: 16 },
   btnText: { color: colors.white, fontSize: 15, fontWeight: '500' },
   linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary },

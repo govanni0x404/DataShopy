@@ -2,18 +2,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import StoreCard from '../../components/StoreCard';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
+
+const isDuplicatePendingClaim = (error) =>
+  error?.code === '23505' || /idx_claims_pending_store|duplicate key/i.test(error?.message || '');
 
 export default function ClaimStoreScreen({ navigation, route }) {
   const owner = route.params?.owner;
@@ -22,6 +26,7 @@ export default function ClaimStoreScreen({ navigation, route }) {
   const [city, setCity] = useState(null);
   const [locNote, setLocNote] = useState('');
   const [stores, setStores] = useState([]);
+  const [busy, setBusy] = useState(false);
 
   const [canClaim, setCanClaim] = useState(false);
 
@@ -106,7 +111,7 @@ export default function ClaimStoreScreen({ navigation, route }) {
       Alert.alert('Error', 'No se encontró el dueño.');
       return;
     }
-    if (!canClaim) {
+    if (!canClaim || busy) {
       Alert.alert('No disponible', 'Ya tienes una tienda asociada. Por ahora solo se permite 1 tienda por dueño.');
       return;
     }
@@ -116,6 +121,7 @@ export default function ClaimStoreScreen({ navigation, route }) {
         text: 'Solicitar',
         onPress: () => {
           const run = async () => {
+            setBusy(true);
             try {
               const { error } = await supabase.from('claims').insert({
                 store_id: store.id,
@@ -127,7 +133,13 @@ export default function ClaimStoreScreen({ navigation, route }) {
               Alert.alert('Listo', 'Tu solicitud fue enviada. Un admin debe aprobarla.');
               setQuery('');
             } catch (e) {
-              Alert.alert('Error', e?.message || 'No se pudo solicitar.');
+              if (isDuplicatePendingClaim(e)) {
+                Alert.alert('Solicitud ya enviada', 'Este negocio ya tiene una solicitud de reclamo pendiente de revisión. Espera a que un admin la resuelva.');
+              } else {
+                Alert.alert('Error', e?.message || 'No se pudo solicitar.');
+              }
+            } finally {
+              setBusy(false);
             }
           };
           run();
@@ -146,10 +158,11 @@ export default function ClaimStoreScreen({ navigation, route }) {
       Alert.alert('Error', 'No se encontró el dueño.');
       return;
     }
-    if (!canClaim) {
+    if (!canClaim || busy) {
       Alert.alert('No disponible', 'Ya tienes una tienda asociada. Por ahora solo se permite 1 tienda por dueño.');
       return;
     }
+    setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke('claim-with-code', { body: { code: c } });
       if (error) throw error;
@@ -157,6 +170,8 @@ export default function ClaimStoreScreen({ navigation, route }) {
       Alert.alert('Listo', 'Local reclamado correctamente.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo reclamar.');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -181,7 +196,7 @@ export default function ClaimStoreScreen({ navigation, route }) {
             placeholderTextColor={colors.textTertiary}
             autoCapitalize="characters"
           />
-          <TouchableOpacity style={styles.codeBtn} onPress={claimWithCode} disabled={!canClaim}>
+          <TouchableOpacity style={styles.codeBtn} onPress={claimWithCode} disabled={!canClaim || busy}>
             <Text style={styles.codeBtnText}>Reclamar</Text>
           </TouchableOpacity>
         </View>
@@ -207,7 +222,7 @@ export default function ClaimStoreScreen({ navigation, route }) {
         renderItem={({ item }) => (
           <View style={styles.item}>
             <StoreCard store={item} promoCount={0} onPress={() => requestClaim(item)} />
-            <TouchableOpacity style={styles.claimBtn} onPress={() => requestClaim(item)} disabled={!canClaim}>
+            <TouchableOpacity style={styles.claimBtn} onPress={() => requestClaim(item)} disabled={!canClaim || busy}>
               <Text style={styles.claimBtnText}>{canClaim ? 'Solicitar reclamo' : 'No disponible'}</Text>
             </TouchableOpacity>
           </View>
@@ -219,6 +234,7 @@ export default function ClaimStoreScreen({ navigation, route }) {
           </View>
         }
       />
+      <LoadingOverlay visible={busy} label="Procesando tu solicitud..." />
     </SafeAreaView>
   );
 }

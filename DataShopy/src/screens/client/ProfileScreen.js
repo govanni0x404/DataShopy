@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 
@@ -19,6 +20,7 @@ export default function ProfileScreen({ navigation, user }) {
   const displayEmail = user?.email || '';
   const initials = useMemo(() => initialsFromName(displayName), [displayName]);
   const tabNav = navigation.getParent?.();
+  const [signingOut, setSigningOut] = useState(false);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -93,12 +95,14 @@ export default function ProfileScreen({ navigation, user }) {
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutItem]}
           onPress={async () => {
+            setSigningOut(true);
             try {
               await supabase.auth.signOut();
             } catch {}
             const root = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
             if (root?.replace) root.replace('Login');
             else navigation.navigate('Login');
+            setSigningOut(false);
           }}
         >
           <View style={[styles.menuIcon, styles.logoutIcon]}>
@@ -107,6 +111,7 @@ export default function ProfileScreen({ navigation, user }) {
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
+      <LoadingOverlay visible={signingOut} label="Cerrando sesión..." />
     </SafeAreaView>
   );
 }

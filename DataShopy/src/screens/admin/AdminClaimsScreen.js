@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 
@@ -19,24 +21,22 @@ const emptyForm = {
 
 const generateClaimCode = () => `DS-${Math.floor(100000 + Math.random() * 900000)}`;
 
-export default function AdminClaimsScreen({ navigation, route }) {
-  const adminPin = route.params?.adminPin || '';
+export default function AdminClaimsScreen({ navigation }) {
   const [tab, setTab] = useState('claims');
   const [claims, setClaims] = useState([]);
   const [stores, setStores] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [userQuery, setUserQuery] = useState('');
   const [storeQuery, setStoreQuery] = useState('');
   const [importText, setImportText] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [editingStoreId, setEditingStoreId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const callAdmin = async (action, payload = {}) => {
     const { data, error } = await supabase.functions.invoke('admin-panel', {
-      body: {
-        pin: adminPin,
-        action,
-        ...payload,
-      },
+      body: { action, ...payload },
     });
     if (error) throw error;
     if (!data?.success) throw new Error(data?.error || 'No se pudo completar la operación.');
@@ -53,32 +53,37 @@ export default function AdminClaimsScreen({ navigation, route }) {
     setStores(Array.isArray(res.stores) ? res.stores : []);
   };
 
+  const loadUsers = async (query = userQuery) => {
+    const res = await callAdmin('listUsers', { query });
+    setUsers(Array.isArray(res.users) ? res.users : []);
+  };
+
   const load = async () => {
-    if (!adminPin) return;
     setLoading(true);
     try {
-      await Promise.all([loadClaims(), loadStores(storeQuery)]);
+      await Promise.all([loadClaims(), loadStores(storeQuery), loadUsers(userQuery)]);
     } catch (e) {
-      Alert.alert('Error', e?.message || 'No se pudieron cargar los datos del panel.');
+      const msg = e?.message || 'No se pudieron cargar los datos del panel.';
+      if (/no autenticado|no autorizado/i.test(msg)) {
+        Alert.alert('Sesión inválida', 'Ingresa nuevamente con tu cuenta admin.', [
+          { text: 'OK', onPress: () => navigation.replace('AdminLogin') },
+        ]);
+        return;
+      }
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!adminPin) {
-      Alert.alert('Sesión expirada', 'Ingresa nuevamente tu PIN admin.', [
-        { text: 'OK', onPress: () => navigation.replace('AdminLogin') },
-      ]);
-      return;
-    }
     const unsubscribe = navigation.addListener('focus', load);
     return unsubscribe;
-  }, [navigation, adminPin, storeQuery]);
+  }, [navigation, storeQuery, userQuery]);
 
   useEffect(() => {
-    if (adminPin) load();
-  }, [adminPin]);
+    load();
+  }, []);
 
   const onApprove = (claimId) => {
     Alert.alert('Aprobar reclamo', '¿Quieres aprobar este reclamo?', [
@@ -86,11 +91,14 @@ export default function AdminClaimsScreen({ navigation, route }) {
       {
         text: 'Aprobar',
         onPress: async () => {
+          setActionBusy(true);
           try {
             await callAdmin('reviewClaim', { claimId, decision: 'approve' });
             await load();
           } catch (e) {
             Alert.alert('Error', e?.message || 'No se pudo aprobar.');
+          } finally {
+            setActionBusy(false);
           }
         },
       },
@@ -104,11 +112,14 @@ export default function AdminClaimsScreen({ navigation, route }) {
         text: 'Rechazar',
         style: 'destructive',
         onPress: async () => {
+          setActionBusy(true);
           try {
             await callAdmin('reviewClaim', { claimId, decision: 'reject' });
             await loadClaims();
           } catch (e) {
             Alert.alert('Error', e?.message || 'No se pudo rechazar.');
+          } finally {
+            setActionBusy(false);
           }
         },
       },
@@ -120,6 +131,33 @@ export default function AdminClaimsScreen({ navigation, route }) {
     if (!q) return stores;
     return stores.filter((s) => `${s.name || ''} ${s.city || ''} ${s.address || ''}`.toLowerCase().includes(q));
   }, [stores, storeQuery]);
+
+  const filteredUsers = useMemo(() => {
+    const q = (userQuery || '').trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => `${u.name || ''} ${u.email || ''}`.toLowerCase().includes(q));
+  }, [users, userQuery]);
+
+  const onSetUserRole = (user, role) => {
+    const roleLabel = role === 'owner' ? 'dueño' : 'cliente';
+    Alert.alert('Cambiar rol', `¿Quieres cambiar a ${user.name || user.email || 'este usuario'} a rol "${roleLabel}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cambiar',
+        onPress: async () => {
+          setActionBusy(true);
+          try {
+            await callAdmin('setUserRole', { userId: user.id, role });
+            await loadUsers(userQuery);
+          } catch (e) {
+            Alert.alert('Error', e?.message || 'No se pudo cambiar el rol.');
+          } finally {
+            setActionBusy(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const resetForm = () => {
     setEditingStoreId(null);
@@ -194,10 +232,20 @@ export default function AdminClaimsScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('AdminLogin')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={async () => {
+            setActionBusy(true);
+            try {
+              await supabase.auth.signOut();
+            } catch {}
+            navigation.replace('AdminLogin');
+            setActionBusy(false);
+          }}
+        >
           <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{tab === 'claims' ? 'Reclamos' : 'Catálogo'}</Text>
+        <Text style={styles.headerTitle}>{tab === 'claims' ? 'Reclamos' : tab === 'catalog' ? 'Catálogo' : 'Usuarios'}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={load} disabled={loading}>
           <Ionicons name="refresh" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -217,6 +265,13 @@ export default function AdminClaimsScreen({ navigation, route }) {
           activeOpacity={0.85}
         >
           <Text style={[styles.tabText, tab === 'catalog' && styles.tabTextActive]}>Catálogo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'users' && styles.tabBtnActive]}
+          onPress={() => setTab('users')}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.tabText, tab === 'users' && styles.tabTextActive]}>Usuarios</Text>
         </TouchableOpacity>
       </View>
 
@@ -252,7 +307,7 @@ export default function AdminClaimsScreen({ navigation, route }) {
             </View>
           }
         />
-      ) : (
+      ) : tab === 'catalog' ? (
         <FlatList
           data={filteredStores}
           keyExtractor={(item) => String(item.id)}
@@ -410,7 +465,64 @@ export default function AdminClaimsScreen({ navigation, route }) {
             </View>
           }
         />
+      ) : (
+        <FlatList
+          data={filteredUsers}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <View style={styles.searchWrap}>
+              <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
+              <TextInput
+                style={styles.searchInput}
+                value={userQuery}
+                onChangeText={setUserQuery}
+                placeholder="Buscar por nombre o correo..."
+                placeholderTextColor={colors.textTertiary}
+              />
+            </View>
+          }
+          renderItem={({ item }) => {
+            const isOwner = item.role === 'owner';
+            const isAdmin = item.role === 'admin';
+            return (
+              <View style={styles.card}>
+                <Text style={styles.storeName} numberOfLines={1}>
+                  {item.name || 'Sin nombre'}
+                </Text>
+                <Text style={styles.meta} numberOfLines={1}>
+                  {item.email || 'Sin correo'}
+                </Text>
+                <View style={[styles.badge, isOwner ? styles.badgeClaimed : styles.badgeUnclaimed, { marginTop: 8, alignSelf: 'flex-start' }]}>
+                  <Text style={[styles.badgeText, isOwner ? styles.badgeTextClaimed : styles.badgeTextUnclaimed]}>
+                    {isAdmin ? 'Admin' : isOwner ? 'Dueño' : 'Cliente'}
+                  </Text>
+                </View>
+                {!isAdmin && (
+                  <View style={styles.actions}>
+                    {isOwner ? (
+                      <TouchableOpacity style={styles.btnGhost} onPress={() => onSetUserRole(item, 'customer')}>
+                        <Text style={styles.btnGhostText}>Quitar rol de dueño</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity style={styles.btnPrimary} onPress={() => onSetUserRole(item, 'owner')}>
+                        <Text style={styles.btnPrimaryText}>Hacer dueño</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>Sin usuarios</Text>
+              <Text style={styles.emptyDesc}>Los usuarios registrados en la app aparecerán aquí.</Text>
+            </View>
+          }
+        />
       )}
+      <LoadingOverlay visible={loading || actionBusy} label="Procesando..." />
     </SafeAreaView>
   );
 }

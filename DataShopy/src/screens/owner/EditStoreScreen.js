@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,8 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { importCatalogStores } from '../../database/db';
 import { supabase } from '../../supabase/client';
@@ -20,6 +21,7 @@ import { supabase } from '../../supabase/client';
 export default function EditStoreScreen({ navigation, route }) {
   const owner = route.params?.owner;
   const [storeId, setStoreId] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const [emoji, setEmoji] = useState('🏪');
   const [bannerColor, setBannerColor] = useState('#EEEDFE');
@@ -35,12 +37,15 @@ export default function EditStoreScreen({ navigation, route }) {
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [locLoading, setLocLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const title = 'Info de mi tienda';
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       if (!owner?.id) return;
       try {
+        if (mounted) setLoaded(false);
         const { data: existing, error } = await supabase
           .from('stores')
           .select('*')
@@ -64,15 +69,16 @@ export default function EditStoreScreen({ navigation, route }) {
         setCountry(existing.country || '');
         setLat(existing.lat != null ? String(existing.lat) : '');
         setLng(existing.lng != null ? String(existing.lng) : '');
-      } catch {}
+      } catch {
+      } finally {
+        if (mounted) setLoaded(true);
+      }
     };
     load();
     return () => {
       mounted = false;
     };
   }, [owner?.id]);
-
-  const title = useMemo(() => (storeId ? 'Info de mi tienda' : 'Crear mi tienda'), [storeId]);
 
   const saveLocationNow = async (payload = {}) => {
     if (!owner?.id || !storeId) return false;
@@ -168,6 +174,10 @@ export default function EditStoreScreen({ navigation, route }) {
       Alert.alert('Error', 'No se encontró el dueño.');
       return;
     }
+    if (!storeId) {
+      Alert.alert('Reclama tu negocio primero', 'Debes reclamar un local existente o solicitar su aprobación antes de poder editarlo.');
+      return;
+    }
     if (!name.trim() || !category.trim()) {
       Alert.alert('Campos obligatorios', 'Ingresa el nombre y la categoría.');
       return;
@@ -192,20 +202,10 @@ export default function EditStoreScreen({ navigation, route }) {
     if (data.lat != null && Number.isNaN(data.lat)) data.lat = null;
     if (data.lng != null && Number.isNaN(data.lng)) data.lng = null;
 
+    setSaving(true);
     try {
-      if (storeId) {
-        const { error } = await supabase.from('stores').update({ ...data }).eq('id', storeId);
-        if (error) throw error;
-      } else {
-        const { data: created, error } = await supabase
-          .from('stores')
-          .insert({ ...data, owner_id: owner.id, claimed: true, claimed_at: new Date().toISOString(), source: 'owner' })
-          .select('*')
-          .single();
-        if (error) throw error;
-        setStoreId(created?.id || null);
-      }
-      const id = storeId || null;
+      const { error } = await supabase.from('stores').update({ ...data }).eq('id', storeId);
+      if (error) throw error;
       const { data: latest } = await supabase.from('stores').select('*').eq('owner_id', owner.id).limit(1).maybeSingle();
       if (latest?.id) {
         importCatalogStores({
@@ -232,12 +232,12 @@ export default function EditStoreScreen({ navigation, route }) {
           ],
           source: 'supabase',
         });
-      } else if (id) {
-        importCatalogStores({ stores: [{ ...data, external_id: `sb:store/${id}`, claimed: 1 }], source: 'supabase' });
       }
       Alert.alert('Listo', 'Tu tienda fue guardada.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch {
       Alert.alert('Error', 'No se pudo guardar. Intenta nuevamente.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -253,6 +253,17 @@ export default function EditStoreScreen({ navigation, route }) {
         <View style={styles.backBtn} />
       </View>
 
+      {loaded && !storeId ? (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyTitle}>Aún no tienes un negocio reclamado</Text>
+          <Text style={styles.emptyDesc}>
+            Para editar la información de un local, primero debes reclamarlo con un código o solicitar su aprobación a un admin.
+          </Text>
+          <TouchableOpacity style={styles.btnPrimary} onPress={() => navigation.navigate('ClaimStore', { owner })}>
+            <Text style={styles.btnText}>Reclamar negocio</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <View style={styles.storeHeader}>
@@ -399,11 +410,13 @@ export default function EditStoreScreen({ navigation, route }) {
             placeholderTextColor={colors.textTertiary}
           />
 
-          <TouchableOpacity style={styles.btnPrimary} onPress={handleSave}>
+          <TouchableOpacity style={styles.btnPrimary} onPress={handleSave} disabled={saving}>
             <Text style={styles.btnText}>Guardar cambios</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
+      <LoadingOverlay visible={saving} label="Guardando..." />
     </SafeAreaView>
   );
 }
@@ -422,6 +435,9 @@ const styles = StyleSheet.create({
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '500', color: colors.text, paddingHorizontal: 8 },
   body: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  emptyBox: { flex: 1, padding: spacing.lg, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '500', color: colors.text, textAlign: 'center' },
+  emptyDesc: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 8, marginBottom: 20, lineHeight: 18 },
   storeHeader: { flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 16 },
   logoBox: { width: 60, height: 60, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
   logoEmoji: { fontSize: 28 },

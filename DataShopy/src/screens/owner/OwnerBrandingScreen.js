@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { importCatalogStores } from '../../database/db';
 import { supabase } from '../../supabase/client';
@@ -9,22 +11,6 @@ import { uploadStoreImage } from '../../supabase/storage';
 
 const COLOR_PRESETS = ['#EEEDFE', '#E1F5EE', '#FAEEDA', '#FAECE7', '#E6F1FB', '#FBEAF0', '#EAF3DE', '#FFF3E0'];
 const EMOJI_PRESETS = ['🏪', '🍕', '☕', '👗', '💊', '📱', '🌿', '🛒'];
-// #region debug-point D:image-picker
-const __dbgBranding = (hypothesisId, msg, data = {}) =>
-  fetch('http://192.168.100.168:7777/event', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: 'image-upload-network',
-      runId: 'pre-fix',
-      hypothesisId,
-      location: 'src/screens/owner/OwnerBrandingScreen.js',
-      msg: `[DEBUG] ${msg}`,
-      data,
-      ts: Date.now(),
-    }),
-  }).catch(() => {});
-// #endregion
 
 export default function OwnerBrandingScreen({ navigation, route }) {
   const owner = route.params?.owner;
@@ -99,21 +85,7 @@ export default function OwnerBrandingScreen({ navigation, route }) {
       return;
     }
     try {
-      // #region debug-point D:picker-open
-      __dbgBranding('D', 'pickAndUpload invoked', {
-        kind,
-        ownerId: owner?.id || null,
-        storeId: store?.id || null,
-      });
-      // #endregion
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      // #region debug-point D:picker-permission
-      __dbgBranding('D', 'media permission result', {
-        kind,
-        status: perm?.status || null,
-        granted: !!perm?.granted,
-      });
-      // #endregion
       if (perm.status !== 'granted') {
         Alert.alert('Permiso requerido', 'Necesitamos acceso a tus fotos para subir imágenes del negocio.');
         return;
@@ -125,16 +97,6 @@ export default function OwnerBrandingScreen({ navigation, route }) {
         allowsEditing: kind !== 'gallery',
         aspect: kind === 'logo' ? [1, 1] : [4, 3],
       });
-      // #region debug-point D:picker-result
-      __dbgBranding('D', 'image picker result', {
-        kind,
-        canceled: !!result?.canceled,
-        assetCount: Array.isArray(result?.assets) ? result.assets.length : 0,
-        firstUri: result?.assets?.[0]?.uri || null,
-        firstMimeType: result?.assets?.[0]?.mimeType || null,
-        firstFileName: result?.assets?.[0]?.fileName || null,
-      });
-      // #endregion
       if (result.canceled || !result.assets?.[0]) return;
 
       setUploading(true);
@@ -162,12 +124,6 @@ export default function OwnerBrandingScreen({ navigation, route }) {
       if (error) throw error;
       syncLocalStore(updatePayload);
     } catch (e) {
-      // #region debug-point D:picker-catch
-      __dbgBranding('D', 'pickAndUpload catch', {
-        kind,
-        error: e?.message || String(e),
-      });
-      // #endregion
       Alert.alert('Error', e?.message || 'No se pudo subir la imagen.');
     } finally {
       setUploading(false);
@@ -177,6 +133,7 @@ export default function OwnerBrandingScreen({ navigation, route }) {
   const removeGalleryImage = async (url) => {
     if (!store?.id) return;
     const nextGallery = galleryUrls.filter((item) => item !== url);
+    setUploading(true);
     try {
       const { error } = await supabase.from('stores').update({ gallery_urls: nextGallery }).eq('id', store.id);
       if (error) throw error;
@@ -184,18 +141,21 @@ export default function OwnerBrandingScreen({ navigation, route }) {
       syncLocalStore({ gallery_urls: nextGallery });
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo quitar la imagen.');
+    } finally {
+      setUploading(false);
     }
   };
 
   const saveBranding = async () => {
     if (!store?.id) {
-      Alert.alert('Primero crea tu tienda', 'Necesitas una tienda antes de personalizar galería y logo.', [
-        { text: 'Ir a crear', onPress: () => navigation.navigate('EditStore', { owner }) },
+      Alert.alert('Primero reclama tu negocio', 'Necesitas una tienda reclamada antes de personalizar galería y logo.', [
+        { text: 'Reclamar', onPress: () => navigation.navigate('ClaimStore', { owner }) },
         { text: 'Cancelar', style: 'cancel' },
       ]);
       return;
     }
 
+    setUploading(true);
     try {
       const { error } = await supabase
         .from('stores')
@@ -210,9 +170,11 @@ export default function OwnerBrandingScreen({ navigation, route }) {
       syncLocalStore();
 
       Alert.alert('Listo', 'La identidad visual de tu negocio fue actualizada.');
-      load();
+      await load();
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo guardar la identidad visual.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -237,9 +199,9 @@ export default function OwnerBrandingScreen({ navigation, route }) {
         {!hasStore ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Aún no tienes tienda</Text>
-            <Text style={styles.emptyDesc}>Primero crea tu negocio y luego vuelve aquí para personalizar su identidad.</Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('EditStore', { owner })}>
-              <Text style={styles.primaryBtnText}>Crear mi tienda</Text>
+            <Text style={styles.emptyDesc}>Primero reclama tu negocio y luego vuelve aquí para personalizar su identidad.</Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('ClaimStore', { owner })}>
+              <Text style={styles.primaryBtnText}>Reclamar negocio</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -331,12 +293,13 @@ export default function OwnerBrandingScreen({ navigation, route }) {
               multiline
             />
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={saveBranding}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={saveBranding} disabled={uploading}>
               <Text style={styles.primaryBtnText}>Guardar cambios</Text>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
+      <LoadingOverlay visible={uploading} label="Procesando..." />
     </SafeAreaView>
   );
 }

@@ -194,21 +194,6 @@ export default function StoreDetailScreen({ navigation, route }) {
       Linking.openURL(fallbackUrl);
     };
 
-    if (hasCoords && destinationByAddress) {
-      Alert.alert('Abrir ruta', '¿Qué destino quieres usar?', [
-        {
-          text:
-            typeof lat === 'number' && typeof lng === 'number' && !Number.isNaN(lat) && !Number.isNaN(lng)
-              ? `Ubicación exacta (${lat.toFixed(4)}, ${lng.toFixed(4)})`
-              : 'Ubicación exacta',
-          onPress: () => openGoogleMaps({ destination: destinationByCoords, isCoords: true }),
-        },
-        { text: 'Dirección escrita', onPress: () => openGoogleMaps({ destination: destinationByAddress, isCoords: false }) },
-        { text: 'Cancelar', style: 'cancel' },
-      ]);
-      return;
-    }
-
     if (hasCoords) {
       openGoogleMaps({ destination: destinationByCoords, isCoords: true });
       return;
@@ -221,14 +206,6 @@ export default function StoreDetailScreen({ navigation, route }) {
 
     Alert.alert('Destino no disponible', 'Este local no tiene dirección ni coordenadas guardadas.');
   };
-
-  const coords = useMemo(() => {
-    if (!store) return null;
-    const lat = typeof store.lat === 'number' ? store.lat : store.lat ? Number(store.lat) : null;
-    const lng = typeof store.lng === 'number' ? store.lng : store.lng ? Number(store.lng) : null;
-    const ok = lat != null && !Number.isNaN(lat) && lng != null && !Number.isNaN(lng);
-    return ok ? { lat, lng } : null;
-  }, [store]);
 
   const mapImageUrl = useMemo(() => null, []);
 

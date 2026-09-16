@@ -11,9 +11,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import CategoryFilter from '../../components/CategoryFilter';
-import BrandMark from '../../components/BrandMark';
 import StoreCard from '../../components/StoreCard';
 import { colors, spacing, radius, categories } from '../../constants/theme';
+import { storeMatchesQuery } from '../../constants/search';
 import { countActivePromos, getAllStores, getAppMeta, getClientPreferences, importCatalogStores, setAppMeta } from '../../database/db';
 import { supabase } from '../../supabase/client';
 
@@ -55,12 +55,9 @@ export default function HomeScreen({ navigation, route }) {
   }, [selectedCategoryId]);
 
   const filteredStores = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return stores;
-    return stores.filter((s) => {
-      const hay = `${s.name || ''} ${s.category || ''}`.toLowerCase();
-      return hay.includes(q);
-    });
+    return stores.filter((s) => storeMatchesQuery(s, q));
   }, [query, stores]);
 
   const loadStores = () => {
@@ -390,29 +387,6 @@ export default function HomeScreen({ navigation, route }) {
                 </View>
               </View>
             )}
-            <View style={styles.heroWrap}>
-              <View style={styles.heroCard}>
-                <BrandMark
-                  size={56}
-                  title={`Hola${user?.name ? `, ${String(user.name).split(' ')[0]}` : ''}`}
-                  subtitle={effectiveCity ? `Explora negocios y promociones en ${effectiveCity}.` : 'Explora negocios, promociones y rutas cercanas.'}
-                />
-                <View style={styles.heroStats}>
-                  <View style={styles.heroStat}>
-                    <Text style={styles.heroStatValue}>{stores.length}</Text>
-                    <Text style={styles.heroStatLabel}>Locales</Text>
-                  </View>
-                  <View style={styles.heroStatDivider} />
-                  <View style={styles.heroStat}>
-                    <Text style={styles.heroStatValue}>
-                      {Object.values(promoCounts).reduce((acc, value) => acc + Number(value || 0), 0)}
-                    </Text>
-                    <Text style={styles.heroStatLabel}>Promos</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
             <View style={styles.searchBar}>
               <View style={styles.searchInput}>
                 <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
@@ -501,31 +475,6 @@ const styles = StyleSheet.create({
   },
   nearbyBtnText: { fontSize: 12, fontWeight: '800', color: colors.white },
   nearbyClose: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  heroWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  heroCard: {
-    borderRadius: 24,
-    backgroundColor: colors.brandPaper,
-    padding: spacing.lg,
-    borderWidth: 0.5,
-    borderColor: '#ECE6DA',
-  },
-  heroStats: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: radius.lg,
-    backgroundColor: colors.bg,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  heroStat: { flex: 1, alignItems: 'center' },
-  heroStatDivider: { width: 1, height: 28, backgroundColor: colors.borderLight },
-  heroStatValue: { fontSize: 20, fontWeight: '700', color: colors.brandInk },
-  heroStatLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   searchBar: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

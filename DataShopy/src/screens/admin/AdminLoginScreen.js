@@ -1,17 +1,43 @@
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
+import { supabase } from '../../supabase/client';
+import { getProfile } from '../../supabase/profile';
 
 export default function AdminLoginScreen({ navigation }) {
-  const [pin, setPin] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleEnter = () => {
-    if (pin.trim() !== '1234') {
-      Alert.alert('Pin incorrecto', 'Intenta nuevamente.');
+  const handleEnter = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert('Datos requeridos', 'Ingresa tu correo y contraseña de administrador.');
       return;
     }
-    navigation.replace('AdminClaims', { adminPin: pin.trim() });
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) throw error;
+      const userId = data?.user?.id;
+      const profile = await getProfile(userId);
+      if (profile?.role !== 'admin') {
+        await supabase.auth.signOut();
+        Alert.alert('No autorizado', 'Esta cuenta no tiene permisos de administrador.');
+        return;
+      }
+      navigation.replace('AdminClaims');
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'No se pudo iniciar sesión.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -26,22 +52,39 @@ export default function AdminLoginScreen({ navigation }) {
 
       <View style={styles.body}>
         <Text style={styles.title}>Acceso admin</Text>
-        <Text style={styles.sub}>Ingresa tu pin para revisar solicitudes de reclamo.</Text>
+        <Text style={styles.sub}>Ingresa con tu cuenta de administrador para revisar solicitudes de reclamo.</Text>
 
-        <Text style={styles.label}>Pin</Text>
+        <Text style={styles.label}>Correo</Text>
         <TextInput
           style={styles.input}
-          value={pin}
-          onChangeText={setPin}
-          placeholder="1234"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="admin@datashopy.com"
           placeholderTextColor={colors.textTertiary}
-          keyboardType="number-pad"
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
 
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleEnter}>
-          <Text style={styles.btnText}>Entrar</Text>
+        <Text style={styles.label}>Contraseña</Text>
+        <View style={styles.passwordRow}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            placeholderTextColor={colors.textTertiary}
+            secureTextEntry={!showPass}
+          />
+          <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(!showPass)}>
+            <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.btnPrimary} onPress={handleEnter} disabled={loading}>
+          {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.btnText}>Entrar</Text>}
         </TouchableOpacity>
       </View>
+      <LoadingOverlay visible={loading} label="Ingresando..." />
     </SafeAreaView>
   );
 }
@@ -72,6 +115,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.bg,
   },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  eyeBtn: { padding: 10 },
   btnPrimary: {
     marginTop: 20,
     backgroundColor: colors.primary,

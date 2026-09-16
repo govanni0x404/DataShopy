@@ -39,20 +39,32 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const adminPin = Deno.env.get('ADMIN_PIN');
 
-    if (!supabaseUrl || !serviceRoleKey || !adminPin) {
+    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
       return json(500, { success: false, error: 'Configuración faltante.' });
     }
 
-    const body = await req.json().catch(() => ({}));
-    if (String(body?.pin || '').trim() !== adminPin) {
-      return json(401, { success: false, error: 'PIN inválido.' });
+    const authHeader = req.headers.get('Authorization') || '';
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: authData, error: authError } = await userClient.auth.getUser();
+    if (authError || !authData?.user?.id) {
+      return json(401, { success: false, error: 'No autenticado.' });
     }
 
-    const action = String(body?.action || '').trim();
     const service = createClient(supabaseUrl, serviceRoleKey);
+
+    const adminProfile = await service.from('profiles').select('role').eq('id', authData.user.id).maybeSingle();
+    if (adminProfile.error) throw adminProfile.error;
+    if (adminProfile.data?.role !== 'admin') {
+      return json(403, { success: false, error: 'No autorizado.' });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const action = String(body?.action || '').trim();
 
     if (action === 'listStores') {
       const q = safeText(body?.query)?.toLowerCase() || '';
@@ -173,6 +185,49 @@ serve(async (req) => {
       return json(200, { success: true, inserted, updated, skipped });
     }
 
+    if (action === 'listUsers') {
+      const q = safeText(body?.query)?.toLowerCase() || '';
+      const { data, error } = await service
+        .from('profiles')
+        .select('id,name,email,role,created_at')
+        .order('created_at', { ascending: false })
+        .limit(300);
+      if (error) throw error;
+      const users = (data || []).filter((u) => {
+        if (!q) return true;
+        return `${u.name || ''} ${u.email || ''}`.toLowerCase().includes(q);
+      });
+      return json(200, { success: true, users });
+    }
+
+    if (action === 'setUserRole') {
+      const userId = safeText(body?.userId);
+      const role = safeText(body?.role);
+      if (!userId || !['customer', 'owner'].includes(role || '')) {
+        return json(400, { success: false, error: 'Datos inválidos.' });
+      }
+
+      if (role === 'customer') {
+        const owned = await service.from('stores').select('id').eq('owner_id', userId).limit(1).maybeSingle();
+        if (owned.error) throw owned.error;
+        if (owned.data?.id) {
+          return json(409, {
+            success: false,
+            error: 'Este usuario tiene una tienda asociada. Reasígnala o elimínala antes de quitarle el rol de dueño.',
+          });
+        }
+      }
+
+      const { data, error } = await service
+        .from('profiles')
+        .update({ role })
+        .eq('id', userId)
+        .select('id,name,email,role')
+        .single();
+      if (error) throw error;
+      return json(200, { success: true, profile: data });
+    }
+
     if (action === 'listClaims') {
       const { data, error } = await service
         .from('claims')
@@ -185,32 +240,24 @@ serve(async (req) => {
       const ownerIds = [...new Set((data || []).map((item) => item.owner_id).filter(Boolean))];
       const profileMap = new Map();
       if (ownerIds.length) {
-        const profiles = await service.from('profiles').select('id,name').in('id', ownerIds);
+        const profiles = await service.from('profiles').select('id,name,email').in('id', ownerIds);
         if (profiles.error) throw profiles.error;
         for (const profile of profiles.data || []) profileMap.set(profile.id, profile);
       }
 
-      const claims = [];
-      for (const claim of data || []) {
-        let email = '';
-        try {
-          const authUser = await service.auth.admin.getUserById(claim.owner_id);
-          email = authUser?.data?.user?.email || '';
-        } catch {}
-        claims.push({
-          claim_id: claim.id,
-          store_id: claim.store_id,
-          store_name: claim.stores?.name || 'Local',
-          store_address: claim.stores?.address || '',
-          store_city: claim.stores?.city || '',
-          store_country: claim.stores?.country || '',
-          owner_id: claim.owner_id,
-          owner_name: profileMap.get(claim.owner_id)?.name || 'Dueño',
-          owner_email: email,
-          message: claim.message,
-          created_at: claim.created_at,
-        });
-      }
+      const claims = (data || []).map((claim) => ({
+        claim_id: claim.id,
+        store_id: claim.store_id,
+        store_name: claim.stores?.name || 'Local',
+        store_address: claim.stores?.address || '',
+        store_city: claim.stores?.city || '',
+        store_country: claim.stores?.country || '',
+        owner_id: claim.owner_id,
+        owner_name: profileMap.get(claim.owner_id)?.name || 'Dueño',
+        owner_email: profileMap.get(claim.owner_id)?.email || '',
+        message: claim.message,
+        created_at: claim.created_at,
+      }));
 
       return json(200, { success: true, claims });
     }
