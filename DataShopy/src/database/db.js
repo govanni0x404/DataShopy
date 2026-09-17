@@ -972,7 +972,10 @@ export const rejectClaim = (claimId) => {
 export const getPromosByStore = (storeId) => {
   const db = getDB();
   return db.getAllSync(
-    'SELECT * FROM promotions WHERE store_id = ? AND is_active = 1 ORDER BY created_at DESC',
+    `SELECT * FROM promotions
+     WHERE store_id = ? AND is_active = 1
+       AND (expires_at IS NULL OR expires_at = '' OR date(expires_at) >= date('now'))
+     ORDER BY created_at DESC`,
     [storeId]
   );
 };
@@ -1001,7 +1004,9 @@ export const deletePromo = (id) => {
 export const countActivePromos = (storeId) => {
   const db = getDB();
   const result = db.getFirstSync(
-    'SELECT COUNT(*) as count FROM promotions WHERE store_id = ? AND is_active = 1',
+    `SELECT COUNT(*) as count FROM promotions
+     WHERE store_id = ? AND is_active = 1
+       AND (expires_at IS NULL OR expires_at = '' OR date(expires_at) >= date('now'))`,
     [storeId]
   );
   return result?.count || 0;

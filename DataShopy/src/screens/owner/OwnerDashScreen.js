@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
+import { activePromoFilter } from '../../supabase/promos';
 
 export default function OwnerDashScreen({ navigation, route }) {
   const owner = route.params?.owner;
@@ -26,7 +27,8 @@ export default function OwnerDashScreen({ navigation, route }) {
           .from('promotions')
           .select('id', { count: 'exact', head: true })
           .eq('store_id', s.id)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .or(activePromoFilter());
         if (promoErr) throw promoErr;
         setActivePromos(count || 0);
         const now = new Date();
@@ -94,24 +96,36 @@ export default function OwnerDashScreen({ navigation, route }) {
         </View>
 
         <View style={styles.stats}>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, styles.statCardViolet]}>
+            <View style={[styles.statIconBadge, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="eye-outline" size={16} color={colors.primary} />
+            </View>
             <Text style={styles.statLabel}>Visitas hoy</Text>
-            <Text style={styles.statValue}>{visitsToday}</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{visitsToday}</Text>
             <Text style={styles.statSub}>vistas del local</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, styles.statCardCoral]}>
+            <View style={[styles.statIconBadge, { backgroundColor: colors.secondaryLight }]}>
+              <Ionicons name="navigate-outline" size={16} color={colors.secondary} />
+            </View>
             <Text style={styles.statLabel}>Cómo llegar</Text>
-            <Text style={styles.statValue}>{directionsToday}</Text>
+            <Text style={[styles.statValue, { color: colors.secondary }]}>{directionsToday}</Text>
             <Text style={styles.statSub}>clicks hoy</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, styles.statCardGreen]}>
+            <View style={[styles.statIconBadge, { backgroundColor: colors.successLight }]}>
+              <Ionicons name="pricetag-outline" size={16} color={colors.success} />
+            </View>
             <Text style={styles.statLabel}>Promos activas</Text>
-            <Text style={styles.statValue}>{activePromos}</Text>
+            <Text style={[styles.statValue, { color: colors.success }]}>{activePromos}</Text>
             <Text style={styles.statSub}>activas</Text>
           </View>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, styles.statCardAmber]}>
+            <View style={[styles.statIconBadge, { backgroundColor: colors.warningLight }]}>
+              <Ionicons name="call-outline" size={16} color={colors.warning} />
+            </View>
             <Text style={styles.statLabel}>Clicks tel.</Text>
-            <Text style={styles.statValue}>{callClicksToday}</Text>
+            <Text style={[styles.statValue, { color: colors.warning }]}>{callClicksToday}</Text>
             <Text style={styles.statSub}>hoy</Text>
           </View>
         </View>
@@ -121,15 +135,15 @@ export default function OwnerDashScreen({ navigation, route }) {
           style={styles.menuItem}
           onPress={() => navigation.navigate('ManagePromos', { owner, storeId: store?.id })}
         >
-          <View style={styles.menuIcon}>
-            <Ionicons name="pricetags-outline" size={18} color={colors.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.secondaryLight }]}>
+            <Ionicons name="pricetags-outline" size={18} color={colors.secondary} />
           </View>
           <Text style={styles.menuLabel}>Mis promociones</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EditStore', { owner })}>
-          <View style={styles.menuIcon}>
+          <View style={[styles.menuIcon, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="storefront-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.menuLabel}>Info de mi tienda</Text>
@@ -138,8 +152,8 @@ export default function OwnerDashScreen({ navigation, route }) {
 
         {!store?.id && (
           <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClaimStore', { owner })}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
+            <View style={[styles.menuIcon, { backgroundColor: colors.successLight }]}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
             </View>
             <Text style={styles.menuLabel}>Reclamar negocio</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
@@ -147,16 +161,16 @@ export default function OwnerDashScreen({ navigation, route }) {
         )}
 
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('OwnerBranding', { owner })}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="images-outline" size={18} color={colors.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.warningLight }]}>
+            <Ionicons name="images-outline" size={18} color={colors.warning} />
           </View>
           <Text style={styles.menuLabel}>Galería y logo</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('OwnerStats', { owner })}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="bar-chart-outline" size={18} color={colors.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.brandMint }]}>
+            <Ionicons name="bar-chart-outline" size={18} color={colors.brandAccent} />
           </View>
           <Text style={styles.menuLabel}>Estadísticas</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
@@ -201,9 +215,22 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 0.5,
     borderColor: colors.borderLight,
+    borderTopWidth: 3,
+  },
+  statCardViolet: { borderTopColor: colors.primary },
+  statCardCoral: { borderTopColor: colors.secondary },
+  statCardGreen: { borderTopColor: colors.success },
+  statCardAmber: { borderTopColor: colors.warning },
+  statIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   statLabel: { fontSize: 11, color: colors.textSecondary, marginBottom: 4 },
-  statValue: { fontSize: 22, fontWeight: '500', color: colors.text },
+  statValue: { fontSize: 22, fontWeight: '700', color: colors.text },
   statSub: { fontSize: 11, color: colors.textTertiary, marginTop: 2 },
   sectionLabel: {
     fontSize: 11,

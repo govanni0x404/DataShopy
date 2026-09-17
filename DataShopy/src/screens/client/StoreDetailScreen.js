@@ -3,9 +3,10 @@ import { Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, Touchabl
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PromoCard from '../../components/PromoCard';
-import { colors, radius, spacing } from '../../constants/theme';
+import { colors, radius, spacing, categories } from '../../constants/theme';
 import { getPromosByStore, getStoreById, importCatalogPromos, importCatalogStores, isFavoriteStore, toggleFavoriteStore, trackEvent } from '../../database/db';
 import { supabase } from '../../supabase/client';
+import { activePromoFilter } from '../../supabase/promos';
 
 export default function StoreDetailScreen({ navigation, route }) {
   const storeId = route.params?.storeId;
@@ -92,6 +93,7 @@ export default function StoreDetailScreen({ navigation, route }) {
           .select('id,store_id,title,description,tag,expires_at,is_active,created_at')
           .eq('store_id', supaStoreId)
           .eq('is_active', true)
+          .or(activePromoFilter())
           .limit(50);
         if (error) throw error;
         importCatalogPromos({ promos: Array.isArray(data) ? data : [], source: 'supabase' });
@@ -210,6 +212,11 @@ export default function StoreDetailScreen({ navigation, route }) {
   const mapImageUrl = useMemo(() => null, []);
 
   const isClaimed = useMemo(() => Number(store?.claimed || 0) === 1, [store?.claimed]);
+  const categoryStyle = useMemo(() => {
+    const label = String(store?.category || '').trim().toLowerCase();
+    const found = categories.find((c) => c.id !== 'all' && String(c.label).toLowerCase() === label);
+    return found || { color: colors.primary, bg: colors.primaryLight };
+  }, [store?.category]);
   const galleryUrls = useMemo(() => {
     if (!store?.gallery_urls) return [];
     if (Array.isArray(store.gallery_urls)) return store.gallery_urls.filter(Boolean);
@@ -258,9 +265,9 @@ export default function StoreDetailScreen({ navigation, route }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={[styles.hero, { backgroundColor: store.banner_color || colors.primaryLight }]}>
+        <View style={[styles.hero, { backgroundColor: store.banner_color || categoryStyle.bg }]}>
           {!!store.cover_image_url && <Image source={{ uri: store.cover_image_url }} style={styles.heroImage} resizeMode="cover" />}
-          <View style={styles.heroTopBadge}>
+          <View style={[styles.heroTopBadge, { backgroundColor: isClaimed ? colors.success : colors.warning }]}>
             <Text style={styles.heroTopBadgeText}>{isClaimed ? 'Perfil activo' : 'Pendiente de reclamo'}</Text>
           </View>
           {!!store.logo_url ? (
@@ -273,8 +280,8 @@ export default function StoreDetailScreen({ navigation, route }) {
         <View style={styles.body}>
           <Text style={styles.name}>{store.name}</Text>
           <View style={styles.metaRow}>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{store.category}</Text>
+            <View style={[styles.categoryBadge, { backgroundColor: categoryStyle.bg }]}>
+              <Text style={[styles.categoryText, { color: categoryStyle.color }]}>{store.category}</Text>
             </View>
             {!!store.city && (
               <View style={styles.softBadge}>
@@ -296,7 +303,7 @@ export default function StoreDetailScreen({ navigation, route }) {
               activeOpacity={0.85}
               disabled={!store.phone}
             >
-              <Ionicons name="call-outline" size={18} color={store.phone ? colors.brandInk : colors.textTertiary} />
+              <Ionicons name="call-outline" size={18} color={store.phone ? colors.secondary : colors.textTertiary} />
               <Text style={[styles.actionBtnSecondaryText, !store.phone && styles.actionBtnSecondaryTextDisabled]}>
                 Llamar
               </Text>
@@ -305,19 +312,19 @@ export default function StoreDetailScreen({ navigation, route }) {
 
           {!!scheduleText && (
             <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={18} color={colors.primary} />
+              <Ionicons name="time-outline" size={18} color={categoryStyle.color} />
               <Text style={styles.infoText}>{scheduleText}</Text>
             </View>
           )}
           {!!store.address && (
             <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={18} color={colors.primary} />
+              <Ionicons name="location-outline" size={18} color={categoryStyle.color} />
               <Text style={styles.infoText}>{store.address}</Text>
             </View>
           )}
           {!!store.phone && (
             <View style={styles.infoRow}>
-              <Ionicons name="call-outline" size={18} color={colors.primary} />
+              <Ionicons name="call-outline" size={18} color={categoryStyle.color} />
               <Text style={styles.infoText}>{store.phone}</Text>
             </View>
           )}
@@ -384,12 +391,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 14,
     right: 14,
-    backgroundColor: 'rgba(15,14,12,0.82)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: radius.full,
   },
-  heroTopBadgeText: { color: colors.brandPaper, fontSize: 11, fontWeight: '600' },
+  heroTopBadgeText: { color: colors.white, fontSize: 11, fontWeight: '700' },
   heroLogo: {
     width: 82,
     height: 82,
@@ -409,7 +415,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  categoryText: { color: colors.primary, fontSize: 12, fontWeight: '500' },
+  categoryText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
   softBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -432,15 +438,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  actionBtnPrimary: { backgroundColor: colors.brandInk },
+  actionBtnPrimary: { backgroundColor: colors.primary },
   actionBtnSecondary: {
-    backgroundColor: colors.brandPaper,
+    backgroundColor: colors.secondaryLight,
     borderWidth: 0.5,
-    borderColor: '#ECE6DA',
+    borderColor: colors.secondaryLight,
   },
   actionBtnDisabled: { backgroundColor: colors.bgSecondary, borderColor: colors.borderLight },
-  actionBtnPrimaryText: { color: colors.white, fontSize: 13, fontWeight: '600' },
-  actionBtnSecondaryText: { color: colors.brandInk, fontSize: 13, fontWeight: '600' },
+  actionBtnPrimaryText: { color: colors.white, fontSize: 13, fontWeight: '700' },
+  actionBtnSecondaryText: { color: colors.secondary, fontSize: 13, fontWeight: '700' },
   actionBtnSecondaryTextDisabled: { color: colors.textTertiary },
   infoRow: {
     flexDirection: 'row',

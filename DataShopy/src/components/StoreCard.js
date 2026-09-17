@@ -1,11 +1,24 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, Image } from 'react-native';
-import { colors, radius, spacing } from '../constants/theme';
+import { colors, radius, spacing, categories } from '../constants/theme';
+
+function getCategoryMeta(categoryLabel) {
+  const normalized = String(categoryLabel || '').trim().toLowerCase();
+  if (!normalized) return { color: colors.primary, bg: colors.primaryLight };
+  const match = categories.find((c) => {
+    if (c.id === 'all') return false;
+    const id = c.id.toLowerCase();
+    const label = c.label.toLowerCase();
+    return normalized === id || normalized === label || normalized.includes(label) || label.includes(normalized) || normalized.includes(id);
+  });
+  return match ? { color: match.color, bg: match.bg } : { color: colors.primary, bg: colors.primaryLight };
+}
 
 export default function StoreCard({ store, promoCount, onPress }) {
   const isClaimed = Number(store?.claimed || 0) === 1;
+  const categoryMeta = getCategoryMeta(store?.category);
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.card, { borderLeftColor: categoryMeta.color }]} onPress={onPress} activeOpacity={0.85}>
       <View style={[styles.banner, { backgroundColor: store.banner_color || '#EEEDFE' }]}>
         {!!store.cover_image_url && <Image source={{ uri: store.cover_image_url }} style={styles.bannerImage} resizeMode="cover" />}
         <View style={styles.bannerBadge}>
@@ -15,7 +28,11 @@ export default function StoreCard({ store, promoCount, onPress }) {
       </View>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{store.name}</Text>
-        <Text style={styles.category} numberOfLines={1}>{store.category}</Text>
+        {!!store.category && (
+          <View style={[styles.categoryPill, { backgroundColor: categoryMeta.bg }]}>
+            <Text style={[styles.category, { color: categoryMeta.color }]} numberOfLines={1}>{store.category}</Text>
+          </View>
+        )}
         {!!store.city && <Text style={styles.city} numberOfLines={1}>{store.city}</Text>}
         {promoCount > 0 && (
           <View style={styles.badge}>
@@ -35,6 +52,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 0.5,
     borderColor: colors.border,
+    borderLeftWidth: 3,
     overflow: 'hidden',
   },
   banner: {
@@ -71,9 +89,16 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 2,
   },
+  categoryPill: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.full,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    marginTop: 2,
+  },
   category: {
-    fontSize: 11,
-    color: colors.textTertiary,
+    fontSize: 10,
+    fontWeight: '600',
   },
   city: {
     marginTop: 4,
@@ -82,7 +107,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     marginTop: 6,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.secondaryLight,
     borderRadius: radius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -90,7 +115,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 10,
-    color: colors.primary,
-    fontWeight: '500',
+    color: colors.secondary,
+    fontWeight: '700',
   },
 });

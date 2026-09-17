@@ -485,6 +485,8 @@ export default function AdminClaimsScreen({ navigation }) {
           renderItem={({ item }) => {
             const isOwner = item.role === 'owner';
             const isAdmin = item.role === 'admin';
+            const roleBadgeStyle = isAdmin ? styles.badgeAdmin : isOwner ? styles.badgeOwner : styles.badgeCustomer;
+            const roleTextStyle = isAdmin ? styles.badgeTextAdmin : isOwner ? styles.badgeTextOwner : styles.badgeTextCustomer;
             return (
               <View style={styles.card}>
                 <Text style={styles.storeName} numberOfLines={1}>
@@ -493,8 +495,8 @@ export default function AdminClaimsScreen({ navigation }) {
                 <Text style={styles.meta} numberOfLines={1}>
                   {item.email || 'Sin correo'}
                 </Text>
-                <View style={[styles.badge, isOwner ? styles.badgeClaimed : styles.badgeUnclaimed, { marginTop: 8, alignSelf: 'flex-start' }]}>
-                  <Text style={[styles.badgeText, isOwner ? styles.badgeTextClaimed : styles.badgeTextUnclaimed]}>
+                <View style={[styles.badge, roleBadgeStyle, { marginTop: 8, alignSelf: 'flex-start' }]}>
+                  <Text style={[styles.badgeText, roleTextStyle]}>
                     {isAdmin ? 'Admin' : isOwner ? 'Dueño' : 'Cliente'}
                   </Text>
                 </View>
@@ -539,7 +541,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '500', color: colors.text },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
   tabs: {
     flexDirection: 'row',
     gap: 10,
@@ -558,7 +560,7 @@ const styles = StyleSheet.create({
   },
   tabBtnActive: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
   tabText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
-  tabTextActive: { color: colors.primary },
+  tabTextActive: { color: colors.primary, fontWeight: '700' },
   list: { padding: spacing.lg, paddingBottom: spacing.xxl },
   card: {
     backgroundColor: colors.bg,
@@ -575,10 +577,43 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 },
   btnGhost: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 0.5, borderColor: colors.border },
   btnGhostText: { color: colors.textSecondary, fontSize: 14 },
-  btnPrimary: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.primary },
-  btnPrimaryText: { color: colors.white, fontSize: 14, fontWeight: '500' },
-  btnPrimaryFlex: { flex: 1, paddingVertical: 10, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center' },
-  btnPrimaryWide: { marginTop: 10, paddingVertical: 12, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center' },
+  btnPrimary: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  btnPrimaryText: { color: colors.white, fontSize: 14, fontWeight: '600' },
+  btnPrimaryFlex: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  btnPrimaryWide: {
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   empty: { paddingTop: 40, alignItems: 'center', paddingHorizontal: spacing.lg },
   emptyTitle: { fontSize: 14, color: colors.textTertiary, marginBottom: 6 },
   emptyDesc: { fontSize: 12, color: colors.textTertiary, textAlign: 'center', lineHeight: 18 },
@@ -637,9 +672,15 @@ const styles = StyleSheet.create({
   storeMeta: { marginTop: 4, fontSize: 12, color: colors.textSecondary },
   storeCode: { marginTop: 4, fontSize: 12, color: colors.primary },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full },
-  badgeClaimed: { backgroundColor: colors.primaryLight },
-  badgeUnclaimed: { backgroundColor: colors.bgSecondary, borderWidth: 0.5, borderColor: colors.border },
-  badgeText: { fontSize: 11, fontWeight: '500' },
-  badgeTextClaimed: { color: colors.primary },
-  badgeTextUnclaimed: { color: colors.textTertiary },
+  badgeClaimed: { backgroundColor: colors.successLight },
+  badgeUnclaimed: { backgroundColor: colors.warningLight },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  badgeTextClaimed: { color: colors.success },
+  badgeTextUnclaimed: { color: colors.warning },
+  badgeAdmin: { backgroundColor: colors.secondaryLight },
+  badgeTextAdmin: { color: colors.secondary },
+  badgeOwner: { backgroundColor: colors.primaryLight },
+  badgeTextOwner: { color: colors.primary },
+  badgeCustomer: { backgroundColor: colors.successLight },
+  badgeTextCustomer: { color: colors.success },
 });

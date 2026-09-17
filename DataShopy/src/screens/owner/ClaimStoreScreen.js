@@ -229,6 +229,9 @@ export default function ClaimStoreScreen({ navigation, route }) {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
+            <View style={styles.emptyIconBadge}>
+              <Ionicons name="storefront-outline" size={26} color={colors.primary} />
+            </View>
             <Text style={styles.emptyTitle}>Sin locales para reclamar</Text>
             <Text style={styles.emptyDesc}>Cuando carguemos locales de tu zona en el catálogo, aparecerán aquí.</Text>
           </View>
@@ -253,7 +256,7 @@ const styles = StyleSheet.create({
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '500', color: colors.text },
   searchBar: { padding: spacing.lg, paddingBottom: spacing.sm },
-  sectionTitle: { fontSize: 12, color: colors.textTertiary, marginBottom: 8, marginTop: 8 },
+  sectionTitle: { fontSize: 12, color: colors.primary, fontWeight: '700', marginBottom: 8, marginTop: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   codeRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   codeInput: {
     flex: 1,
@@ -290,14 +293,24 @@ const styles = StyleSheet.create({
   item: { marginBottom: 12 },
   claimBtn: {
     marginTop: 8,
-    borderWidth: 0.5,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    backgroundColor: colors.secondaryLight,
     borderRadius: radius.md,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  claimBtnText: { color: colors.primary, fontSize: 14, fontWeight: '500' },
+  claimBtnText: { color: colors.secondary, fontSize: 14, fontWeight: '600' },
   empty: { paddingTop: 40, alignItems: 'center', paddingHorizontal: spacing.lg },
-  emptyTitle: { fontSize: 14, color: colors.textTertiary, marginBottom: 6 },
+  emptyIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: { fontSize: 14, color: colors.text, fontWeight: '600', marginBottom: 6 },
   emptyDesc: { fontSize: 12, color: colors.textTertiary, textAlign: 'center', lineHeight: 18 },
 });

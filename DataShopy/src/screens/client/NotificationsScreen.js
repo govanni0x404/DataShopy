@@ -11,6 +11,14 @@ import {
   importCatalogStores,
 } from '../../database/db';
 import { supabase } from '../../supabase/client';
+import { activePromoFilter } from '../../supabase/promos';
+
+const ACCENT_PAIRS = [
+  { bg: colors.primaryLight, fg: colors.primary },
+  { bg: colors.secondaryLight, fg: colors.secondary },
+  { bg: colors.successLight, fg: colors.success },
+  { bg: colors.warningLight, fg: colors.warning },
+];
 
 const relativeTime = (iso) => {
   if (!iso) return 'Hace un momento';
@@ -60,6 +68,7 @@ export default function NotificationsScreen({ navigation, route }) {
         .from('promotions')
         .select('id,title,description,tag,expires_at,created_at,store_id')
         .eq('is_active', true)
+        .or(activePromoFilter())
         .order('created_at', { ascending: false })
         .limit(24);
       if (error) throw error;
@@ -158,32 +167,35 @@ export default function NotificationsScreen({ navigation, route }) {
             </Text>
           </View>
         ) : (
-          items.map((n) => (
-            <TouchableOpacity
-              key={n.id}
-              style={styles.item}
-              activeOpacity={0.85}
-              onPress={() => {
-                if (n.storeId) navigation.navigate('StoreDetail', { storeId: n.storeId, userId: user?.id || null });
-              }}
-            >
-              <View style={[styles.dot, !n.unread && styles.dotRead]} />
-              <View style={styles.badgeIcon}>
-                <Text style={styles.badgeEmoji}>{n.emoji || '🏪'}</Text>
-              </View>
-              <View style={styles.body}>
-                <Text style={styles.title}>{n.title}</Text>
-                <Text style={styles.desc}>{n.desc}</Text>
-                <Text style={styles.time}>{n.meta ? `${n.time} · ${n.meta}` : n.time}</Text>
-                {typeof n.promoCount === 'number' && (
-                  <Text style={styles.favoriteMeta}>
-                    {n.promoCount > 0 ? `${n.promoCount} promos activas` : 'Sin promociones activas'}
-                  </Text>
-                )}
-              </View>
-              {n.storeId ? <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} /> : null}
-            </TouchableOpacity>
-          ))
+          items.map((n, idx) => {
+            const accent = ACCENT_PAIRS[idx % ACCENT_PAIRS.length];
+            return (
+              <TouchableOpacity
+                key={n.id}
+                style={styles.item}
+                activeOpacity={0.85}
+                onPress={() => {
+                  if (n.storeId) navigation.navigate('StoreDetail', { storeId: n.storeId, userId: user?.id || null });
+                }}
+              >
+                <View style={[styles.dot, { backgroundColor: accent.fg }, !n.unread && styles.dotRead]} />
+                <View style={[styles.badgeIcon, { backgroundColor: accent.bg }]}>
+                  <Text style={styles.badgeEmoji}>{n.emoji || '🏪'}</Text>
+                </View>
+                <View style={styles.body}>
+                  <Text style={styles.title}>{n.title}</Text>
+                  <Text style={styles.desc}>{n.desc}</Text>
+                  <Text style={styles.time}>{n.meta ? `${n.time} · ${n.meta}` : n.time}</Text>
+                  {typeof n.promoCount === 'number' && (
+                    <Text style={[styles.favoriteMeta, { color: accent.fg }]}>
+                      {n.promoCount > 0 ? `${n.promoCount} promos activas` : 'Sin promociones activas'}
+                    </Text>
+                  )}
+                </View>
+                {n.storeId ? <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} /> : null}
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>

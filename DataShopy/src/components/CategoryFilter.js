@@ -15,12 +15,22 @@ export default function CategoryFilter({ selected, onSelect }) {
         return (
           <TouchableOpacity
             key={cat.id}
-            style={[styles.chip, isActive && styles.chipActive]}
+            style={[
+              styles.chip,
+              { backgroundColor: cat.bg, borderColor: cat.bg },
+              isActive && { backgroundColor: cat.color, borderColor: cat.color },
+            ]}
             onPress={() => onSelect(cat.id)}
             activeOpacity={0.8}
           >
             {cat.emoji && <Text style={styles.emoji}>{cat.emoji} </Text>}
-            <Text style={[styles.label, isActive && styles.labelActive]}>
+            <Text
+              style={[
+                styles.label,
+                { color: cat.color },
+                isActive && styles.labelActive,
+              ]}
+            >
               {cat.label}
             </Text>
           </TouchableOpacity>
@@ -43,22 +53,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: radius.full,
-    borderWidth: 0.5,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
-  },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    borderWidth: 1,
   },
   emoji: { fontSize: 13 },
   label: {
     fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '400',
+    fontWeight: '600',
   },
   labelActive: {
     color: colors.white,
-    fontWeight: '500',
+    fontWeight: '700',
   },
 });

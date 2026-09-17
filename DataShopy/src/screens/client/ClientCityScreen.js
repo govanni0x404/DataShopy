@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 import { getAllStores, getClientPreferences, saveClientPreferences } from '../../database/db';
 
+const CHIP_COLORS = [colors.primary, colors.secondary, colors.success, colors.warning];
+
 export default function ClientCityScreen({ navigation, route }) {
   const user = route.params?.user;
   const prefs = getClientPreferences(user?.id);
@@ -40,6 +42,9 @@ export default function ClientCityScreen({ navigation, route }) {
 
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.card}>
+          <View style={styles.titleIconWrap}>
+            <Ionicons name="navigate" size={18} color={colors.white} />
+          </View>
           <Text style={styles.title}>Personaliza el catálogo</Text>
           <Text style={styles.desc}>
             Si eliges una ciudad favorita, DataShopy prioriza esa zona cuando no haya una ubicación exacta disponible.
@@ -56,11 +61,18 @@ export default function ClientCityScreen({ navigation, route }) {
 
           <Text style={styles.label}>Sugerencias</Text>
           <View style={styles.chips}>
-            {suggestions.map((item) => (
-              <TouchableOpacity key={item} style={styles.chip} onPress={() => setCity(item)}>
-                <Text style={styles.chipText}>{item}</Text>
-              </TouchableOpacity>
-            ))}
+            {suggestions.map((item, idx) => {
+              const tint = CHIP_COLORS[idx % CHIP_COLORS.length];
+              return (
+                <TouchableOpacity
+                  key={item}
+                  style={[styles.chip, { backgroundColor: `${tint}1A`, borderColor: tint }]}
+                  onPress={() => setCity(item)}
+                >
+                  <Text style={[styles.chipText, { color: tint }]}>{item}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <TouchableOpacity style={styles.primaryBtn} onPress={handleSave}>
@@ -96,6 +108,15 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     padding: spacing.lg,
   },
+  titleIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
   desc: { marginTop: 8, fontSize: 13, lineHeight: 20, color: colors.textSecondary },
   label: { marginTop: 18, marginBottom: 8, fontSize: 12, color: colors.textSecondary },
@@ -114,12 +135,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
   },
-  chipText: { color: colors.primary, fontSize: 12, fontWeight: '500' },
+  chipText: { fontSize: 12, fontWeight: '700' },
   primaryBtn: {
     marginTop: 22,
-    backgroundColor: colors.brandInk,
+    backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: 13,
     alignItems: 'center',

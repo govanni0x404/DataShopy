@@ -67,7 +67,7 @@ export default function RegisterScreen({ navigation }) {
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-              <Ionicons name="arrow-back" size={22} color={colors.text} />
+              <Ionicons name="arrow-back" size={22} color={colors.primary} />
             </TouchableOpacity>
             <Text style={styles.title}>Crear cuenta</Text>
             <View style={{ width: 40 }} />
@@ -92,8 +92,11 @@ export default function RegisterScreen({ navigation }) {
                 placeholderTextColor={colors.textTertiary}
                 secureTextEntry={!showPass}
               />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(!showPass)}>
-                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
+              <TouchableOpacity
+                style={[styles.eyeBtn, showPass && styles.eyeBtnActive]}
+                onPress={() => setShowPass(!showPass)}
+              >
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -107,7 +110,7 @@ export default function RegisterScreen({ navigation }) {
               secureTextEntry={!showPass}
             />
 
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister} disabled={loading}>
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister} disabled={loading} activeOpacity={0.85}>
               <Text style={styles.btnText}>{loading ? 'Creando cuenta...' : 'Crear cuenta'}</Text>
             </TouchableOpacity>
 
@@ -125,16 +128,29 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 20 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 17, fontWeight: '500', color: colors.text },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: colors.primaryLight },
+  title: { fontSize: 17, fontWeight: '600', color: colors.text },
   form: { paddingHorizontal: 24 },
   subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 24, lineHeight: 20 },
   label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
-  input: { borderWidth: 0.5, borderColor: colors.border, borderRadius: 12, padding: 12, fontSize: 14, color: colors.text },
+  input: { borderWidth: 0.5, borderColor: colors.border, borderRadius: 12, padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.bgSecondary },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { padding: 10 },
-  btnPrimary: { backgroundColor: colors.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 24, marginBottom: 16 },
-  btnText: { color: colors.white, fontSize: 15, fontWeight: '500' },
+  eyeBtn: { padding: 10, borderRadius: radius.full },
+  eyeBtnActive: { backgroundColor: colors.primaryLight },
+  btnPrimary: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  btnText: { color: colors.white, fontSize: 15, fontWeight: '600' },
   linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary },
-  linkAccent: { color: colors.primary },
+  linkAccent: { color: colors.primary, fontWeight: '600' },
 });

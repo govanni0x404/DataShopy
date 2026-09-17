@@ -16,6 +16,8 @@ export default function BrandMark({ size = 72, title = 'DataShopy', subtitle, da
             height: size,
             borderRadius: Math.round(size * 0.28),
             backgroundColor: dark ? 'rgba(245,242,236,0.12)' : colors.brandPaper,
+            borderWidth: 2,
+            borderColor: dark ? 'rgba(255,107,74,0.55)' : colors.secondaryLight,
           },
         ]}
       >
@@ -24,6 +26,7 @@ export default function BrandMark({ size = 72, title = 'DataShopy', subtitle, da
           style={{ width: size * 0.78, height: size * 0.78, borderRadius: Math.round(size * 0.2) }}
           resizeMode="contain"
         />
+        <View style={[styles.dot, { backgroundColor: colors.secondary }]} />
       </View>
       <Text style={[styles.title, { color: textColor }]}>{title}</Text>
       {!!subtitle && <Text style={[styles.subtitle, { color: secondaryColor }]}>{subtitle}</Text>}
@@ -41,6 +44,17 @@ const styles = StyleSheet.create({
   logoWrap: {
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  dot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.white,
   },
   title: {
     fontSize: 28,

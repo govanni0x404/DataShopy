@@ -4,12 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
+import { activePromoFilter } from '../../supabase/promos';
 
-function MetricCard({ label, value, hint }) {
+function MetricCard({ label, value, hint, icon, accent, accentBg }) {
   return (
-    <View style={styles.metricCard}>
+    <View style={[styles.metricCard, { borderTopColor: accent, borderTopWidth: 3 }]}>
+      <View style={[styles.metricIconBadge, { backgroundColor: accentBg }]}>
+        <Ionicons name={icon} size={16} color={accent} />
+      </View>
       <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={[styles.metricValue, { color: accent }]}>{value}</Text>
       <Text style={styles.metricHint}>{hint}</Text>
     </View>
   );
@@ -82,6 +86,7 @@ export default function OwnerStatsScreen({ navigation, route }) {
           .select('id', { count: 'exact', head: true })
           .eq('store_id', s.id)
           .eq('is_active', true)
+          .or(activePromoFilter())
           .then((result) => result.count || 0),
       ]);
 
@@ -146,10 +151,38 @@ export default function OwnerStatsScreen({ navigation, route }) {
         ) : (
           <>
             <View style={styles.grid}>
-              <MetricCard label="Visitas hoy" value={summary.viewsToday} hint="clientes vieron tu ficha" />
-              <MetricCard label="Llamadas hoy" value={summary.callsToday} hint="clicks en teléfono" />
-              <MetricCard label="Rutas hoy" value={summary.directionsToday} hint="clicks en cómo llegar" />
-              <MetricCard label="Interacción" value={conversionText} hint="llamadas + rutas / vistas" />
+              <MetricCard
+                label="Visitas hoy"
+                value={summary.viewsToday}
+                hint="clientes vieron tu ficha"
+                icon="eye-outline"
+                accent={colors.primary}
+                accentBg={colors.primaryLight}
+              />
+              <MetricCard
+                label="Llamadas hoy"
+                value={summary.callsToday}
+                hint="clicks en teléfono"
+                icon="call-outline"
+                accent={colors.warning}
+                accentBg={colors.warningLight}
+              />
+              <MetricCard
+                label="Rutas hoy"
+                value={summary.directionsToday}
+                hint="clicks en cómo llegar"
+                icon="navigate-outline"
+                accent={colors.secondary}
+                accentBg={colors.secondaryLight}
+              />
+              <MetricCard
+                label="Interacción"
+                value={conversionText}
+                hint="llamadas + rutas / vistas"
+                icon="trending-up-outline"
+                accent={colors.success}
+                accentBg={colors.successLight}
+              />
             </View>
 
             <View style={styles.sectionCard}>
@@ -217,8 +250,16 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     padding: spacing.md,
   },
+  metricIconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
   metricLabel: { fontSize: 11, color: colors.textSecondary, marginBottom: 6 },
-  metricValue: { fontSize: 22, fontWeight: '700', color: colors.text },
+  metricValue: { fontSize: 20, fontWeight: '700', color: colors.text },
   metricHint: { marginTop: 4, fontSize: 11, lineHeight: 16, color: colors.textTertiary },
   sectionCard: {
     backgroundColor: colors.bg,
@@ -234,7 +275,7 @@ const styles = StyleSheet.create({
   recommendation: { fontSize: 13, lineHeight: 20, color: colors.textSecondary },
   primaryBtn: {
     marginTop: 18,
-    backgroundColor: colors.brandInk,
+    backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: 13,
     alignItems: 'center',

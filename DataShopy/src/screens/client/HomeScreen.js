@@ -16,6 +16,7 @@ import { colors, spacing, radius, categories } from '../../constants/theme';
 import { storeMatchesQuery } from '../../constants/search';
 import { countActivePromos, getAllStores, getAppMeta, getClientPreferences, importCatalogStores, setAppMeta } from '../../database/db';
 import { supabase } from '../../supabase/client';
+import { activePromoFilter } from '../../supabase/promos';
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 const distanceKm = (a, b) => {
@@ -231,7 +232,8 @@ export default function HomeScreen({ navigation, route }) {
           .from('promotions')
           .select('id', { count: 'exact', head: true })
           .eq('store_id', supaStoreId)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .or(activePromoFilter());
         if (error) throw error;
         const promoCount = count || 0;
         if (!mounted) return;
@@ -344,7 +346,7 @@ export default function HomeScreen({ navigation, route }) {
           <Text style={styles.headerTitle}>DataShopy</Text>
         </View>
         <TouchableOpacity style={styles.headerIcon} onPress={goToNotifications}>
-          <Ionicons name="notifications-outline" size={20} color={colors.textSecondary} />
+          <Ionicons name="notifications-outline" size={19} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -359,6 +361,9 @@ export default function HomeScreen({ navigation, route }) {
             {!!nearbyPromo && (
               <View style={styles.nearbyWrap}>
                 <View style={styles.nearbyCard}>
+                  <View style={styles.nearbyIconWrap}>
+                    <Ionicons name="flash" size={16} color={colors.white} />
+                  </View>
                   <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={styles.nearbyTitle}>Promos cerca de ti</Text>
                     <Text style={styles.nearbyDesc}>
@@ -389,7 +394,9 @@ export default function HomeScreen({ navigation, route }) {
             )}
             <View style={styles.searchBar}>
               <View style={styles.searchInput}>
-                <Ionicons name="search-outline" size={16} color={colors.textTertiary} />
+                <View style={styles.searchIconWrap}>
+                  <Ionicons name="search-outline" size={14} color={colors.primary} />
+                </View>
                 <TextInput
                   style={styles.searchText}
                   value={query}
@@ -403,11 +410,18 @@ export default function HomeScreen({ navigation, route }) {
             <CategoryFilter selected={selectedCategoryId} onSelect={setSelectedCategoryId} />
 
             <View style={styles.countRow}>
-              <Text style={styles.countText}>
-                {filteredStores.length} {filteredStores.length === 1 ? 'local' : 'locales'}
-                {effectiveCity ? ` en ${effectiveCity}` : ' cerca de ti'}
-              </Text>
-              <Text style={styles.countSubtext}>Abre un local para ver promociones, llamada y mapa en un toque.</Text>
+              <View style={styles.countHeaderRow}>
+                <View style={styles.countIconWrap}>
+                  <Ionicons name="storefront" size={15} color={colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.countText}>
+                    {filteredStores.length} {filteredStores.length === 1 ? 'local' : 'locales'}
+                    {effectiveCity ? ` en ${effectiveCity}` : ' cerca de ti'}
+                  </Text>
+                  <Text style={styles.countSubtext}>Abre un local para ver promociones, llamada y mapa en un toque.</Text>
+                </View>
+              </View>
               {!!googleNote && (
                 <Text style={styles.helperText}>{googleNote}</Text>
               )}
@@ -451,18 +465,34 @@ const styles = StyleSheet.create({
   },
   headerEyebrow: { fontSize: 11, color: colors.textTertiary, marginBottom: 1 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.brandInk },
-  headerIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  headerIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+  },
   nearbyWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   nearbyCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.primaryMid,
-    backgroundColor: colors.primarySoft,
+    borderColor: colors.secondary,
+    backgroundColor: colors.secondaryLight,
     paddingVertical: 12,
-    paddingLeft: 14,
+    paddingLeft: 12,
     paddingRight: 8,
+  },
+  nearbyIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.full,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   nearbyTitle: { fontSize: 13, fontWeight: '800', color: colors.brandInk },
   nearbyDesc: { marginTop: 4, fontSize: 12, lineHeight: 18, color: colors.textSecondary },
@@ -470,7 +500,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.lg,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary,
     marginRight: 8,
   },
   nearbyBtnText: { fontSize: 12, fontWeight: '800', color: colors.white },
@@ -486,8 +516,16 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.bgSecondary,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  searchIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchText: {
     flex: 1,
@@ -496,7 +534,17 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   countRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  countText: { fontSize: 13, color: colors.textSecondary },
+  countHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  countIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.secondaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  countText: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
   countSubtext: { marginTop: 4, fontSize: 12, color: colors.textTertiary },
   helperText: { marginTop: 4, fontSize: 12, color: colors.textTertiary },
   list: { paddingBottom: spacing.xxl },

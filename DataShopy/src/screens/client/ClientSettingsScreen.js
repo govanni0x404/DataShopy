@@ -13,9 +13,12 @@ const RADIUS_OPTIONS = [
   { label: '2 km', value: 2 },
 ];
 
-function SettingRow({ title, desc, value, onValueChange }) {
+function SettingRow({ icon, iconBg, iconColor, title, desc, value, onValueChange }) {
   return (
     <View style={styles.settingRow}>
+      <View style={[styles.settingIcon, { backgroundColor: iconBg || colors.primaryLight }]}>
+        <Ionicons name={icon || 'options-outline'} size={16} color={iconColor || colors.primary} />
+      </View>
       <View style={{ flex: 1, paddingRight: 12 }}>
         <Text style={styles.settingTitle}>{title}</Text>
         <Text style={styles.settingDesc}>{desc}</Text>
@@ -23,7 +26,7 @@ function SettingRow({ title, desc, value, onValueChange }) {
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: '#DADADA', true: colors.primaryMid }}
+        trackColor={{ false: colors.border, true: colors.primaryMid }}
         thumbColor={value ? colors.primary : colors.white}
       />
     </View>
@@ -57,6 +60,9 @@ export default function ClientSettingsScreen({ navigation, route }) {
           <Text style={styles.cardDesc}>Ajusta qué tipo de novedades quieres ver y cómo quieres descubrir negocios.</Text>
 
           <SettingRow
+            icon="notifications-outline"
+            iconBg={colors.primaryLight}
+            iconColor={colors.primary}
             title="Notificaciones en la app"
             desc="Muestra alertas de promociones, cambios y novedades en tu panel."
             value={prefs.notifications_enabled}
@@ -64,6 +70,9 @@ export default function ClientSettingsScreen({ navigation, route }) {
           />
 
           <SettingRow
+            icon="pricetag-outline"
+            iconBg={colors.secondaryLight}
+            iconColor={colors.secondary}
             title="Promociones destacadas"
             desc="Prioriza avisos sobre descuentos activos y nuevas promociones."
             value={prefs.promo_alerts}
@@ -71,6 +80,9 @@ export default function ClientSettingsScreen({ navigation, route }) {
           />
 
           <SettingRow
+            icon="navigate-outline"
+            iconBg={colors.successLight}
+            iconColor={colors.success}
             title="Locales cercanos"
             desc="Da prioridad a novedades de negocios de tu ciudad o ubicación."
             value={prefs.nearby_alerts}
@@ -99,6 +111,9 @@ export default function ClientSettingsScreen({ navigation, route }) {
           )}
 
           <SettingRow
+            icon="sparkles-outline"
+            iconBg={colors.warningLight}
+            iconColor={colors.warning}
             title="Actualizaciones de producto"
             desc="Recibe avisos sobre cambios de DataShopy y funciones nuevas."
             value={prefs.marketing_updates}
@@ -141,6 +156,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: colors.borderLight,
   },
+  settingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   settingTitle: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 4 },
   settingDesc: { fontSize: 12, lineHeight: 18, color: colors.textSecondary },
   radiusBox: { paddingTop: 12, paddingBottom: 16, borderBottomWidth: 0.5, borderBottomColor: colors.borderLight },
@@ -151,9 +174,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.lg,
-    backgroundColor: '#F2F2F2',
+    backgroundColor: colors.bgSecondary,
     borderWidth: 1,
-    borderColor: '#E6E6E6',
+    borderColor: colors.border,
   },
   radiusChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryMid },
   radiusChipText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },

@@ -3,7 +3,9 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import { colors, radius, spacing } from '../../constants/theme';
+import { colors, radius, spacing, categories } from '../../constants/theme';
+
+const helpTint = categories.find((c) => c.id === 'tech') || { color: colors.primary, bg: colors.primaryLight };
 import { supabase } from '../../supabase/client';
 
 function initialsFromName(name) {
@@ -52,8 +54,8 @@ export default function ProfileScreen({ navigation, user }) {
           style={styles.menuItem}
           onPress={() => tabNav?.navigate('Notifications', { screen: 'NotificationsMain', params: { initialTab: 'fav', user } })}
         >
-          <View style={styles.menuIcon}>
-            <Ionicons name="heart-outline" size={18} color={colors.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.secondaryLight }]}>
+            <Ionicons name="heart-outline" size={18} color={colors.secondary} />
           </View>
           <Text style={styles.menuLabel}>Locales favoritos</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
@@ -69,8 +71,8 @@ export default function ProfileScreen({ navigation, user }) {
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClientCity', { user })}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="location-outline" size={18} color={colors.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.successLight }]}>
+            <Ionicons name="location-outline" size={18} color={colors.success} />
           </View>
           <Text style={styles.menuLabel}>Mi ciudad</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
@@ -78,15 +80,15 @@ export default function ProfileScreen({ navigation, user }) {
 
         <Text style={styles.sectionLabel}>App</Text>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClientSettings', { user })}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="settings-outline" size={18} color={colors.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: colors.warningLight }]}>
+            <Ionicons name="settings-outline" size={18} color={colors.warning} />
           </View>
           <Text style={styles.menuLabel}>Configuración</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ClientHelp', { user })}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
+          <View style={[styles.menuIcon, { backgroundColor: helpTint.bg }]}>
+            <Ionicons name="help-circle-outline" size={18} color={helpTint.color} />
           </View>
           <Text style={styles.menuLabel}>Ayuda</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
@@ -134,11 +136,11 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 22, fontWeight: '500', color: colors.primary },
+  avatarText: { fontSize: 22, fontWeight: '700', color: colors.white },
   name: { fontSize: 17, fontWeight: '500', color: colors.text },
   email: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   sectionLabel: {

@@ -379,6 +379,7 @@ export default function EditStoreScreen({ navigation, route }) {
           </View>
 
           <TouchableOpacity style={styles.btnSecondary} onPress={handleUseMyLocation} disabled={locLoading}>
+            <Ionicons name="locate-outline" size={16} color={colors.secondary} />
             <Text style={styles.btnSecondaryText}>{locLoading ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual'}</Text>
           </TouchableOpacity>
 
@@ -439,11 +440,19 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: '500', color: colors.text, textAlign: 'center' },
   emptyDesc: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 8, marginBottom: 20, lineHeight: 18 },
   storeHeader: { flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 16 },
-  logoBox: { width: 60, height: 60, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
+  logoBox: {
+    width: 60,
+    height: 60,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primaryLight,
+  },
   logoEmoji: { fontSize: 28 },
-  storeTitle: { fontSize: 16, fontWeight: '500', color: colors.text },
-  storeHint: { fontSize: 12, color: colors.primary, marginTop: 4 },
-  label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
+  storeTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  storeHint: { fontSize: 12, color: colors.primary, marginTop: 4, fontWeight: '500' },
+  label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14, fontWeight: '600' },
   input: {
     borderWidth: 0.5,
     borderColor: colors.border,
@@ -456,14 +465,18 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 86, textAlignVertical: 'top' },
   coordRow: { flexDirection: 'row', gap: 12 },
   btnSecondary: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 12,
-    borderWidth: 0.5,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    backgroundColor: colors.secondaryLight,
     borderRadius: radius.md,
     padding: 13,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  btnSecondaryText: { color: colors.primary, fontSize: 14 },
+  btnSecondaryText: { color: colors.secondary, fontSize: 14, fontWeight: '600' },
   btnPrimary: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
@@ -471,5 +484,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 24,
   },
-  btnText: { color: colors.white, fontSize: 15, fontWeight: '500' },
+  btnText: { color: colors.white, fontSize: 15, fontWeight: '600' },
 });

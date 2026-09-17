@@ -16,6 +16,14 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { importCatalogPromos, importCatalogStores } from '../../database/db';
 import { supabase } from '../../supabase/client';
+import { activePromoFilter } from '../../supabase/promos';
+
+const PROMO_ACCENTS = [
+  { solid: colors.primary, bg: colors.primaryLight },
+  { solid: colors.secondary, bg: colors.secondaryLight },
+  { solid: colors.warning, bg: colors.warningLight },
+  { solid: colors.brandAccent, bg: colors.brandMint },
+];
 
 export default function ManagePromosScreen({ navigation, route }) {
   const owner = route.params?.owner;
@@ -75,6 +83,7 @@ export default function ManagePromosScreen({ navigation, route }) {
         .select('*')
         .eq('store_id', id)
         .eq('is_active', true)
+        .or(activePromoFilter())
         .order('created_at', { ascending: false });
       if (error) throw error;
       setPromos(Array.isArray(ps) ? ps : []);
@@ -268,32 +277,44 @@ export default function ManagePromosScreen({ navigation, route }) {
                 </View>
               )}
 
-              {promos.map((p) => (
-                <View key={String(p.id)} style={styles.promoCard}>
-                  <View style={styles.promoTop}>
-                    <Text style={styles.promoTitle} numberOfLines={1}>
-                      {p.title}
+              {promos.map((p, i) => {
+                const accent = PROMO_ACCENTS[i % PROMO_ACCENTS.length];
+                return (
+                  <View key={String(p.id)} style={[styles.promoCard, { borderLeftColor: accent.solid }]}>
+                    <View style={styles.promoTop}>
+                      <View style={[styles.promoTagDot, { backgroundColor: accent.solid }]} />
+                      <Text style={styles.promoTitle} numberOfLines={1}>
+                        {p.title}
+                      </Text>
+                      <View style={styles.actions}>
+                        <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(p)}>
+                          <Ionicons name="pencil-outline" size={14} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(p)}>
+                          <Ionicons name="trash-outline" size={14} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <Text style={styles.promoDesc} numberOfLines={2}>
+                      {p.tag ? `${p.tag} · ` : ''}
+                      {p.expires_at ? `Vence: ${p.expires_at}` : 'Sin fecha de vencimiento'}
                     </Text>
-                    <View style={styles.actions}>
-                      <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(p)}>
-                        <Ionicons name="pencil-outline" size={14} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(p)}>
-                        <Ionicons name="trash-outline" size={14} color={colors.textSecondary} />
-                      </TouchableOpacity>
+                    <View style={styles.statusRow}>
+                      <View style={styles.activePill}>
+                        <View style={styles.activeDot} />
+                        <Text style={styles.activePillText}>Activa</Text>
+                      </View>
+                      {!!p.tag && (
+                        <View style={[styles.tagPill, { backgroundColor: accent.bg }]}>
+                          <Text style={[styles.tagPillText, { color: accent.solid }]} numberOfLines={1}>
+                            {p.tag}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
-                  <Text style={styles.promoDesc} numberOfLines={2}>
-                    {p.tag ? `${p.tag} · ` : ''}
-                    {p.expires_at ? `Vence: ${p.expires_at}` : 'Sin fecha de vencimiento'}
-                  </Text>
-                  <View style={styles.statusRow}>
-                    <View style={styles.activePill}>
-                      <Text style={styles.activePillText}>Activa</Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
 
               <TouchableOpacity style={styles.addBtn} onPress={openNew}>
                 <Ionicons name="add" size={18} color={colors.white} />
@@ -328,10 +349,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 0.5,
     borderColor: colors.borderLight,
+    borderLeftWidth: 3,
     padding: 12,
     marginBottom: 10,
   },
-  promoTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 },
+  promoTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 },
+  promoTagDot: { width: 7, height: 7, borderRadius: radius.full },
   promoTitle: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.text },
   actions: { flexDirection: 'row', gap: 8 },
   actionBtn: {
@@ -345,15 +368,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   promoDesc: { fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
-  statusRow: { marginTop: 8 },
+  statusRow: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
     backgroundColor: colors.successLight,
     borderRadius: radius.full,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
-  activePillText: { fontSize: 11, color: colors.success, fontWeight: '500' },
+  activeDot: { width: 6, height: 6, borderRadius: radius.full, backgroundColor: colors.success },
+  activePillText: { fontSize: 11, color: colors.success, fontWeight: '600' },
+  tagPill: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    maxWidth: 160,
+  },
+  tagPillText: { fontSize: 11, fontWeight: '600' },
   addBtn: {
     flexDirection: 'row',
     gap: 8,

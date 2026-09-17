@@ -9,7 +9,11 @@ export default function PromoCard({ promo }) {
 
   return (
     <View style={styles.card}>
-      {promo.tag && <Text style={styles.tag}>{promo.tag}</Text>}
+      {promo.tag && (
+        <View style={styles.tagPill}>
+          <Text style={styles.tag}>{promo.tag}</Text>
+        </View>
+      )}
       <Text style={styles.title}>{promo.title}</Text>
       {promo.description && <Text style={styles.desc}>{promo.description}</Text>}
       {expiresDate && (
@@ -21,22 +25,31 @@ export default function PromoCard({ promo }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.bgSecondary,
+    backgroundColor: colors.secondaryLight,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.secondary,
+  },
+  tagPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.secondary,
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginBottom: 6,
   },
   tag: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontSize: 10,
+    color: colors.white,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   title: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.text,
     marginBottom: 3,
   },
@@ -47,7 +60,8 @@ const styles = StyleSheet.create({
   },
   expires: {
     fontSize: 11,
-    color: colors.textTertiary,
+    color: colors.warning,
+    fontWeight: '600',
     marginTop: 6,
   },
 });

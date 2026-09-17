@@ -4,11 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 
-function FaqItem({ icon, title, desc }) {
+function FaqItem({ icon, iconBg, iconColor, title, desc }) {
   return (
     <View style={styles.faqItem}>
-      <View style={styles.faqIcon}>
-        <Ionicons name={icon} size={18} color={colors.primary} />
+      <View style={[styles.faqIcon, { backgroundColor: iconBg || colors.primaryLight }]}>
+        <Ionicons name={icon} size={18} color={iconColor || colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.faqTitle}>{title}</Text>
@@ -38,28 +38,36 @@ export default function ClientHelpScreen({ navigation }) {
         <View style={styles.card}>
           <FaqItem
             icon="heart-outline"
+            iconBg={colors.secondaryLight}
+            iconColor={colors.secondary}
             title="¿Cómo guardo locales favoritos?"
             desc="Abre el detalle de un local y toca el corazón. Aparecerá en Alertas > Mis favoritos y desde tu perfil."
           />
           <FaqItem
             icon="location-outline"
+            iconBg={colors.successLight}
+            iconColor={colors.success}
             title="¿Cómo cambio la ciudad?"
             desc="En tu perfil entra en Mi ciudad y guarda una ciudad preferida o vuelve al modo automático."
           />
           <FaqItem
             icon="pricetag-outline"
+            iconBg={colors.warningLight}
+            iconColor={colors.warning}
             title="¿Cómo veo promociones?"
             desc="Entra a un local reclamado para ver sus promociones activas. Si aún no está reclamado, la ficha lo indica."
           />
           <FaqItem
             icon="storefront-outline"
+            iconBg={colors.primaryLight}
+            iconColor={colors.primary}
             title="¿Quiero publicar mi negocio?"
             desc="Desde la pantalla de dueño puedes registrar tu negocio o reclamar un local existente con código."
           />
         </View>
 
         <TouchableOpacity style={styles.linkBtn} onPress={() => Linking.openURL('https://www.google.com/maps')}>
-          <Ionicons name="map-outline" size={18} color={colors.primary} />
+          <Ionicons name="map-outline" size={18} color={colors.white} />
           <Text style={styles.linkBtnText}>Abrir Google Maps</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -114,10 +122,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderWidth: 0.5,
-    borderColor: colors.border,
+    backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: 13,
   },
-  linkBtnText: { color: colors.brandInk, fontSize: 14, fontWeight: '600' },
+  linkBtnText: { color: colors.white, fontSize: 14, fontWeight: '700' },
 });

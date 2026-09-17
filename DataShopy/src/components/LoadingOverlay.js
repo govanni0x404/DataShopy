@@ -8,7 +8,9 @@ export default function LoadingOverlay({ visible, label = 'Procesando...' }) {
     <Modal visible transparent animationType="fade" statusBarTranslucent>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <View style={styles.spinnerRing}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
           <Text style={styles.label}>{label}</Text>
         </View>
       </View>
@@ -30,6 +32,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
     alignItems: 'center',
     minWidth: 150,
+    borderTopWidth: 3,
+    borderTopColor: colors.primary,
+  },
+  spinnerRing: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
   },
   label: { fontSize: 13, color: colors.textSecondary, marginTop: 14, textAlign: 'center' },
 });

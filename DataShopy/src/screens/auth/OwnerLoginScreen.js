@@ -146,8 +146,11 @@ export default function OwnerLoginScreen({ navigation }) {
                 placeholderTextColor={colors.textTertiary}
                 secureTextEntry={!showPass}
               />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(!showPass)}>
-                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
+              <TouchableOpacity
+                style={[styles.eyeBtn, showPass && styles.eyeBtnActive]}
+                onPress={() => setShowPass(!showPass)}
+              >
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -169,6 +172,7 @@ export default function OwnerLoginScreen({ navigation }) {
               style={styles.btnPrimary}
               onPress={isRegister ? handleRegister : handleLogin}
               disabled={loading}
+              activeOpacity={0.85}
             >
               <Text style={styles.btnPrimaryText}>
                 {loading ? 'Cargando...' : isRegister ? 'Crear cuenta y entrar' : 'Entrar al panel'}
@@ -185,6 +189,7 @@ export default function OwnerLoginScreen({ navigation }) {
               style={styles.btnSecondary}
               onPress={() => setMode(isRegister ? 'login' : 'register')}
               disabled={loading}
+              activeOpacity={0.8}
             >
               <Text style={styles.btnSecondaryText}>{isRegister ? 'Ya tengo cuenta' : 'Registrar mi tienda'}</Text>
             </TouchableOpacity>
@@ -197,7 +202,7 @@ export default function OwnerLoginScreen({ navigation }) {
 
             <TouchableOpacity onPress={() => navigation.navigate('AdminLogin')} disabled={loading}>
               <Text style={styles.linkText}>
-                ¿Eres admin? <Text style={styles.linkAccent}>Entrar aquí</Text>
+                ¿Eres admin? <Text style={styles.linkAccentAlt}>Entrar aquí</Text>
               </Text>
             </TouchableOpacity>
 
@@ -225,8 +230,13 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 24,
     backgroundColor: colors.bg,
-    borderWidth: 0.5,
-    borderColor: colors.borderLight,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 3,
   },
   formTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
   formSub: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
@@ -241,29 +251,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgSecondary,
   },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { padding: 10 },
+  eyeBtn: { padding: 10, borderRadius: radius.full },
+  eyeBtnActive: { backgroundColor: colors.primaryLight },
   btnPrimary: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
     padding: 14,
     alignItems: 'center',
     marginTop: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  btnPrimaryText: { color: colors.white, fontSize: 15, fontWeight: '500' },
+  btnPrimaryText: { color: colors.white, fontSize: 15, fontWeight: '600' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 },
   line: { flex: 1, height: 0.5, backgroundColor: colors.border },
   dividerText: { fontSize: 12, color: colors.textTertiary },
   btnSecondary: {
-    borderWidth: 0.5,
-    borderColor: colors.brandInk,
+    borderWidth: 1.5,
+    borderColor: colors.secondary,
     borderRadius: radius.md,
     padding: 13,
     alignItems: 'center',
     marginBottom: 16,
+    backgroundColor: colors.secondaryLight,
   },
-  btnSecondaryText: { color: colors.brandInk, fontSize: 14, fontWeight: '500' },
+  btnSecondaryText: { color: colors.secondary, fontSize: 14, fontWeight: '600' },
   linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary, marginBottom: 10 },
-  linkAccent: { color: colors.primary },
+  linkAccent: { color: colors.primary, fontWeight: '600' },
+  linkAccentAlt: { color: colors.secondary, fontWeight: '600' },
   demoBox: {
     marginTop: 12,
     backgroundColor: colors.bgSecondary,

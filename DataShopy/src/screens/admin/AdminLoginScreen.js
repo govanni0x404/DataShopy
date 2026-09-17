@@ -51,6 +51,9 @@ export default function AdminLoginScreen({ navigation }) {
       </View>
 
       <View style={styles.body}>
+        <View style={styles.iconBadge}>
+          <Ionicons name="shield-checkmark" size={26} color={colors.white} />
+        </View>
         <Text style={styles.title}>Acceso admin</Text>
         <Text style={styles.sub}>Ingresa con tu cuenta de administrador para revisar solicitudes de reclamo.</Text>
 
@@ -75,12 +78,15 @@ export default function AdminLoginScreen({ navigation }) {
             placeholderTextColor={colors.textTertiary}
             secureTextEntry={!showPass}
           />
-          <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPass(!showPass)}>
-            <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
+          <TouchableOpacity
+            style={[styles.eyeBtn, showPass && styles.eyeBtnActive]}
+            onPress={() => setShowPass(!showPass)}
+          >
+            <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleEnter} disabled={loading}>
+        <TouchableOpacity style={styles.btnPrimary} onPress={handleEnter} disabled={loading} activeOpacity={0.85}>
           {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.btnText}>Entrar</Text>}
         </TouchableOpacity>
       </View>
@@ -101,9 +107,23 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '500', color: colors.text },
+  headerTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
   body: { padding: spacing.lg },
-  title: { fontSize: 18, fontWeight: '500', color: colors.text },
+  iconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  title: { fontSize: 18, fontWeight: '700', color: colors.text },
   sub: { fontSize: 13, color: colors.textSecondary, marginTop: 6, lineHeight: 18 },
   label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 18 },
   input: {
@@ -116,13 +136,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { padding: 10 },
+  eyeBtn: { padding: 10, borderRadius: radius.full },
+  eyeBtnActive: { backgroundColor: colors.primaryLight },
   btnPrimary: {
     marginTop: 20,
     backgroundColor: colors.primary,
     borderRadius: radius.md,
     padding: 14,
     alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  btnText: { color: colors.white, fontSize: 15, fontWeight: '500' },
+  btnText: { color: colors.white, fontSize: 15, fontWeight: '600' },
 });

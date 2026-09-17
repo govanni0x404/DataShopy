@@ -209,13 +209,13 @@ export default function OwnerBrandingScreen({ navigation, route }) {
             <Text style={styles.sectionTitle}>Imágenes reales</Text>
             <Text style={styles.sectionDesc}>Sube logo, portada y hasta 6 fotos del local. Estas imágenes se guardan en Supabase Storage.</Text>
             <View style={styles.uploadActions}>
-              <TouchableOpacity style={styles.mediaBtn} onPress={() => pickAndUpload('logo')} disabled={uploading}>
-                <Ionicons name="image-outline" size={18} color={colors.brandInk} />
-                <Text style={styles.mediaBtnText}>{logoUrl ? 'Cambiar logo' : 'Subir logo'}</Text>
+              <TouchableOpacity style={[styles.mediaBtn, styles.mediaBtnViolet]} onPress={() => pickAndUpload('logo')} disabled={uploading}>
+                <Ionicons name="image-outline" size={18} color={colors.primary} />
+                <Text style={[styles.mediaBtnText, { color: colors.primary }]}>{logoUrl ? 'Cambiar logo' : 'Subir logo'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.mediaBtn} onPress={() => pickAndUpload('cover')} disabled={uploading}>
-                <Ionicons name="images-outline" size={18} color={colors.brandInk} />
-                <Text style={styles.mediaBtnText}>{coverImageUrl ? 'Cambiar portada' : 'Subir portada'}</Text>
+              <TouchableOpacity style={[styles.mediaBtn, styles.mediaBtnCoral]} onPress={() => pickAndUpload('cover')} disabled={uploading}>
+                <Ionicons name="images-outline" size={18} color={colors.secondary} />
+                <Text style={[styles.mediaBtnText, { color: colors.secondary }]}>{coverImageUrl ? 'Cambiar portada' : 'Subir portada'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -373,6 +373,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: colors.border,
   },
+  mediaBtnViolet: { backgroundColor: colors.primaryLight, borderColor: colors.primaryMid },
+  mediaBtnCoral: { backgroundColor: colors.secondaryLight, borderColor: colors.secondary },
   mediaBtnText: { color: colors.brandInk, fontSize: 13, fontWeight: '600' },
   galleryBtn: {
     flexDirection: 'row',
@@ -411,7 +413,7 @@ const styles = StyleSheet.create({
   },
   emojiChipActive: { borderWidth: 1, borderColor: colors.brandInk },
   emojiChipText: { fontSize: 24 },
-  label: { marginTop: 16, marginBottom: 8, fontSize: 12, color: colors.textSecondary },
+  label: { marginTop: 16, marginBottom: 8, fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
   input: {
     borderWidth: 0.5,
     borderColor: colors.border,
@@ -429,7 +431,7 @@ const styles = StyleSheet.create({
   primaryBtn: {
     marginTop: 20,
     borderRadius: radius.md,
-    backgroundColor: colors.brandInk,
+    backgroundColor: colors.primary,
     paddingVertical: 13,
     alignItems: 'center',
   },
