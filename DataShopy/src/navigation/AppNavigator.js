@@ -9,6 +9,7 @@ import * as Location from 'expo-location';
 import { colors } from '../constants/theme';
 import { supabase } from '../supabase/client';
 import { getProfile } from '../supabase/profile';
+import { registerForPushNotificationsAsync } from '../notifications/push';
 
 // Auth
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -197,6 +198,8 @@ export default function AppNavigator() {
         }
 
         if (!mounted) return;
+
+        registerForPushNotificationsAsync(user.id);
 
         if (profile?.role === 'owner') {
           setInitialRoute('OwnerApp');

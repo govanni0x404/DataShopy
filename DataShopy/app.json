@@ -28,8 +28,8 @@
         "backgroundColor": "#0F0E0C"
       },
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.govanni.DataShopy"
@@ -46,11 +46,22 @@
         {
           "photosPermission": "DataShopy necesita acceso a tus fotos para subir el logo, la portada y la galería del negocio."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#7C3AED"
+        }
       ]
     ],
     "extra": {
       "supabaseUrl": "https://vwmdgxwxqedhhsqgxhoe.supabase.co",
-      "supabaseAnonKey": "sb_publishable_kTg7RHdR0-vOkNxAQb4fdA_zykt4ySY"
-    }
+      "supabaseAnonKey": "sb_publishable_kTg7RHdR0-vOkNxAQb4fdA_zykt4ySY",
+      "eas": {
+        "projectId": "2957bc33-d94a-4983-bfe8-2953a615268d"
+      }
+    },
+    "owner": "govanni"
   }
 }

@@ -10,6 +10,7 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
+import { registerForPushNotificationsAsync } from '../../notifications/push';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -53,6 +54,7 @@ export default function LoginScreen({ navigation }) {
         name: profile?.name || u.user_metadata?.name || 'Usuario',
         email: u.email || '',
       };
+      registerForPushNotificationsAsync(u.id);
       navigation.replace('ClientApp', { user: nextUser });
     } catch (e) {
       Alert.alert('Error', e?.message || 'Correo o contraseña incorrectos.');

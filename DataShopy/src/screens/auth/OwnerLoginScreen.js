@@ -16,6 +16,7 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
+import { registerForPushNotificationsAsync } from '../../notifications/push';
 
 export default function OwnerLoginScreen({ navigation }) {
   const [mode, setMode] = useState('login'); // login | register
@@ -29,6 +30,7 @@ export default function OwnerLoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const goOwnerApp = (owner) => {
+    registerForPushNotificationsAsync(owner.id);
     navigation.replace('OwnerApp', { owner });
   };
 

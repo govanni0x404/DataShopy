@@ -17,6 +17,22 @@ const safeText = (value: unknown) => {
   return text || null;
 };
 
+// Best-effort push notification via Expo's push service. Never throws —
+// a notification failing to send should never fail the underlying action
+// (approving/rejecting a claim still has to succeed either way).
+const sendExpoPush = async (pushToken: string | null | undefined, title: string, bodyText: string) => {
+  if (!pushToken) return;
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ to: pushToken, title, body: bodyText, sound: 'default' }),
+    });
+  } catch (error) {
+    console.warn('sendExpoPush failed', error);
+  }
+};
+
 const normalizeStorePayload = (raw: Record<string, unknown> = {}) => ({
   name: safeText(raw.name),
   category: safeText(raw.category) || 'Local',
@@ -275,6 +291,9 @@ serve(async (req) => {
       if (!claim.data?.id) return json(404, { success: false, error: 'Reclamo no encontrado.' });
       if (claim.data.status !== 'pending') return json(409, { success: false, error: 'El reclamo ya fue resuelto.' });
 
+      const ownerProfile = await service.from('profiles').select('push_token').eq('id', claim.data.owner_id).maybeSingle();
+      const ownerPushToken = ownerProfile.data?.push_token || null;
+
       const now = new Date().toISOString();
 
       if (decision === 'reject') {
@@ -285,6 +304,7 @@ serve(async (req) => {
           .select('id')
           .single();
         if (rejected.error) throw rejected.error;
+        await sendExpoPush(ownerPushToken, 'Reclamo rechazado', 'Tu solicitud para reclamar un negocio fue rechazada.');
         return json(200, { success: true });
       }
 
@@ -321,6 +341,13 @@ serve(async (req) => {
         .eq('store_id', claim.data.store_id)
         .eq('status', 'pending')
         .neq('id', claimId);
+
+      const approvedStoreName = await service.from('stores').select('name').eq('id', claim.data.store_id).maybeSingle();
+      await sendExpoPush(
+        ownerPushToken,
+        '¡Reclamo aprobado!',
+        `Ya eres dueño verificado de "${approvedStoreName.data?.name || 'tu negocio'}". Entra a administrarlo.`
+      );
 
       return json(200, { success: true });
     }
