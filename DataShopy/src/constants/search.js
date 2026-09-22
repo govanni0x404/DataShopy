@@ -116,7 +116,9 @@ export const storeMatchesQuery = (store, rawQuery) => {
   const q = normalize(rawQuery);
   if (!q) return true;
 
-  const haystackText = normalize(`${store?.name || ''} ${store?.category || ''} ${store?.description || ''}`);
+  const haystackText = normalize(
+    `${store?.name || ''} ${store?.category || ''} ${store?.description || ''} ${store?.keywords || ''}`
+  );
   if (haystackText.includes(q)) return true;
 
   const queryWords = tokenize(rawQuery);

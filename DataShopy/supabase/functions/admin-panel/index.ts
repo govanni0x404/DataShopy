@@ -32,6 +32,7 @@ const normalizeStorePayload = (raw: Record<string, unknown> = {}) => ({
   lat: raw.lat == null || raw.lat === '' ? null : Number(raw.lat),
   lng: raw.lng == null || raw.lng === '' ? null : Number(raw.lng),
   claim_code: safeText(raw.claim_code)?.toUpperCase() || null,
+  ...(raw.keywords !== undefined ? { keywords: safeText(raw.keywords) } : {}),
 });
 
 serve(async (req) => {
@@ -70,7 +71,7 @@ serve(async (req) => {
       const q = safeText(body?.query)?.toLowerCase() || '';
       const { data, error } = await service
         .from('stores')
-        .select('id,name,category,address,city,country,emoji,schedule_weekday,schedule_weekend,phone,claim_code,claimed,owner_id,source')
+        .select('id,name,category,address,city,country,emoji,schedule_weekday,schedule_weekend,phone,claim_code,claimed,owner_id,source,keywords')
         .order('name', { ascending: true })
         .limit(300);
       if (error) throw error;

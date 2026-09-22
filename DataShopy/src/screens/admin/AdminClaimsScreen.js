@@ -17,6 +17,7 @@ const emptyForm = {
   schedule_weekend: '',
   phone: '',
   claim_code: '',
+  keywords: '',
 };
 
 const generateClaimCode = () => `DS-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -177,6 +178,7 @@ export default function AdminClaimsScreen({ navigation }) {
       schedule_weekend: store.schedule_weekend || '',
       phone: store.phone || '',
       claim_code: store.claim_code || '',
+      keywords: store.keywords || '',
     });
   };
 
@@ -387,6 +389,14 @@ export default function AdminClaimsScreen({ navigation }) {
                   placeholder="Código de reclamo"
                   placeholderTextColor={colors.textTertiary}
                   autoCapitalize="characters"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={form.keywords}
+                  onChangeText={(value) => setForm((prev) => ({ ...prev, keywords: value }))}
+                  placeholder="Palabras clave (qué vende: rueda, manubrio, casco...)"
+                  placeholderTextColor={colors.textTertiary}
+                  multiline
                 />
               </View>
               <View style={styles.actionsRow}>

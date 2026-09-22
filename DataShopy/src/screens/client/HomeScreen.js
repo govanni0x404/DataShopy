@@ -261,7 +261,7 @@ export default function HomeScreen({ navigation, route }) {
     let mounted = true;
     const syncCatalog = async () => {
       const city = effectiveCity;
-      const syncKey = `sb_sync_city:${city ? city.toLowerCase() : '__any__'}`;
+      const syncKey = `sb_sync_city_v2:${city ? city.toLowerCase() : '__any__'}`;
       const last = getAppMeta(syncKey);
       const now = Date.now();
       if (last) {
@@ -274,7 +274,7 @@ export default function HomeScreen({ navigation, route }) {
         let q = supabase
           .from('stores')
           .select(
-            'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls'
+            'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls,keywords'
           )
           .limit(250);
         if (city) q = q.eq('city', city);
@@ -284,7 +284,7 @@ export default function HomeScreen({ navigation, route }) {
           const fallback = await supabase
             .from('stores')
             .select(
-              'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls'
+              'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls,keywords'
             )
             .limit(250);
           if (fallback.error) throw fallback.error;
@@ -311,6 +311,7 @@ export default function HomeScreen({ navigation, route }) {
           logo_url: s.logo_url || null,
           cover_image_url: s.cover_image_url || null,
           gallery_urls: s.gallery_urls || [],
+          keywords: s.keywords || null,
         }));
         const res = importCatalogStores({ stores: mapped, source: 'supabase' });
         setAppMeta(syncKey, new Date().toISOString());

@@ -36,6 +36,7 @@ export default function EditStoreScreen({ navigation, route }) {
   const [country, setCountry] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
+  const [keywords, setKeywords] = useState('');
   const [locLoading, setLocLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const title = 'Info de mi tienda';
@@ -69,6 +70,7 @@ export default function EditStoreScreen({ navigation, route }) {
         setCountry(existing.country || '');
         setLat(existing.lat != null ? String(existing.lat) : '');
         setLng(existing.lng != null ? String(existing.lng) : '');
+        setKeywords(existing.keywords || '');
       } catch {
       } finally {
         if (mounted) setLoaded(true);
@@ -107,6 +109,7 @@ export default function EditStoreScreen({ navigation, route }) {
               external_id: `sb:store/${latest.id}`,
               claimed: latest.claimed ? 1 : 0,
               claimed_at: latest.claimed_at,
+              keywords: latest.keywords,
             },
           ],
           source: 'supabase',
@@ -197,6 +200,7 @@ export default function EditStoreScreen({ navigation, route }) {
       country: country.trim() || null,
       lat: lat.trim() ? Number(lat.trim()) : null,
       lng: lng.trim() ? Number(lng.trim()) : null,
+      keywords: keywords.trim() || null,
     };
 
     if (data.lat != null && Number.isNaN(data.lat)) data.lat = null;
@@ -228,6 +232,7 @@ export default function EditStoreScreen({ navigation, route }) {
               external_id: `sb:store/${latest.id}`,
               claimed: latest.claimed ? 1 : 0,
               claimed_at: latest.claimed_at,
+              keywords: latest.keywords,
             },
           ],
           source: 'supabase',
@@ -324,6 +329,20 @@ export default function EditStoreScreen({ navigation, route }) {
             placeholderTextColor={colors.textTertiary}
             multiline
           />
+
+          <Text style={styles.label}>Palabras clave (qué vendes)</Text>
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            value={keywords}
+            onChangeText={setKeywords}
+            placeholder="Ej: rueda, manubrio, sillín, casco, reparación"
+            placeholderTextColor={colors.textTertiary}
+            multiline
+          />
+          <Text style={styles.hint}>
+            Escribe, separados por coma, los productos y servicios de tu local. Los clientes te encontrarán al buscar
+            cualquiera de estas palabras.
+          </Text>
 
           <Text style={styles.label}>Dirección</Text>
           <TextInput
@@ -463,6 +482,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   multiline: { minHeight: 86, textAlignVertical: 'top' },
+  hint: { fontSize: 11, color: colors.textTertiary, marginTop: 6, lineHeight: 16 },
   coordRow: { flexDirection: 'row', gap: 12 },
   btnSecondary: {
     flexDirection: 'row',

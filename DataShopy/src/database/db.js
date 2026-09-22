@@ -167,6 +167,7 @@ export const initDB = async () => {
     { name: 'logo_url', type: 'TEXT' },
     { name: 'cover_image_url', type: 'TEXT' },
     { name: 'gallery_urls', type: 'TEXT' },
+    { name: 'keywords', type: 'TEXT' },
   ]);
 
   ensureColumns(database, 'promotions', [
@@ -276,6 +277,7 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
     const lng = safeNum(raw?.lng);
     const logoUrl = safeText(raw?.logo_url);
     const coverImageUrl = safeText(raw?.cover_image_url);
+    const keywords = safeText(raw?.keywords);
     const galleryUrls = Array.isArray(raw?.gallery_urls)
       ? JSON.stringify(raw.gallery_urls.filter(Boolean))
       : safeText(raw?.gallery_urls);
@@ -291,8 +293,8 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
       const existing = db.getFirstSync('SELECT id FROM stores WHERE external_id = ? LIMIT 1', [externalId]);
       if (!existing) {
         db.runSync(
-          `INSERT INTO stores (owner_id, name, category, description, address, phone, schedule_weekday, schedule_weekend, emoji, banner_color, city, country, lat, lng, source, external_id, claimed, logo_url, cover_image_url, gallery_urls)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO stores (owner_id, name, category, description, address, phone, schedule_weekday, schedule_weekend, emoji, banner_color, city, country, lat, lng, source, external_id, claimed, logo_url, cover_image_url, gallery_urls, keywords)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             systemOwnerId,
             name,
@@ -314,6 +316,7 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
             logoUrl,
             coverImageUrl,
             galleryUrls,
+            keywords,
           ]
         );
         inserted += 1;
@@ -336,6 +339,7 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
                logo_url = COALESCE(?, logo_url),
                cover_image_url = COALESCE(?, cover_image_url),
                gallery_urls = COALESCE(?, gallery_urls),
+               keywords = COALESCE(?, keywords),
                claimed = COALESCE(?, claimed),
                claimed_at = COALESCE(?, claimed_at),
                source = COALESCE(source, ?),
@@ -358,6 +362,7 @@ export const importCatalogStores = ({ stores = [], source = 'admin' } = {}) => {
             logoUrl,
             coverImageUrl,
             galleryUrls,
+            keywords,
             claimed,
             claimedAt,
             rawSource,
