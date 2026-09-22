@@ -240,7 +240,9 @@ export default function AdminClaimsScreen({ navigation }) {
             setActionBusy(true);
             try {
               await supabase.auth.signOut();
-            } catch {}
+            } catch (e) {
+              console.warn('[AdminClaims] signOut failed', e);
+            }
             navigation.replace('AdminLogin');
             setActionBusy(false);
           }}

@@ -21,22 +21,30 @@ const ensureIndexes = (database) => {
     database.execSync(
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_external_id ON stores(external_id) WHERE external_id IS NOT NULL"
     );
-  } catch {}
+  } catch (e) {
+    console.warn('[db] ensureIndexes: idx_stores_external_id failed (likely duplicate external_id data)', e);
+  }
   try {
     database.execSync(
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_claims_pending_store ON claims(store_id) WHERE status = 'pending'"
     );
-  } catch {}
+  } catch (e) {
+    console.warn('[db] ensureIndexes: idx_claims_pending_store failed (likely duplicate pending claims)', e);
+  }
   try {
     database.execSync(
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_promotions_external_id ON promotions(external_id) WHERE external_id IS NOT NULL"
     );
-  } catch {}
+  } catch (e) {
+    console.warn('[db] ensureIndexes: idx_promotions_external_id failed (likely duplicate external_id data)', e);
+  }
   try {
     database.execSync(
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_favorite_stores_user_store ON favorite_stores(user_id, store_id)"
     );
-  } catch {}
+  } catch (e) {
+    console.warn('[db] ensureIndexes: idx_favorite_stores_user_store failed (likely duplicate favorites)', e);
+  }
 };
 
 const ensureSystemOwner = (database) => {
@@ -45,7 +53,9 @@ const ensureSystemOwner = (database) => {
       'INSERT OR IGNORE INTO owners (name, email, password) VALUES (?, ?, ?)',
       ['DataShopy', 'system@datashopy.local', 'system']
     );
-  } catch {}
+  } catch (e) {
+    console.warn('[db] ensureSystemOwner insert failed', e);
+  }
   const owner = database.getFirstSync('SELECT id FROM owners WHERE email = ?', ['system@datashopy.local']);
   return owner?.id || null;
 };
@@ -196,8 +206,10 @@ export const initDB = async () => {
        SET city='Santiago', country='CL', lat=-33.4372, lng=-70.6506
        WHERE name='Café Central' AND (lat IS NULL OR lng IS NULL)`
     );
-  } catch {}
- 
+  } catch (e) {
+    console.warn('[db] backfilling demo store coordinates failed', e);
+  }
+
   // Datos de demo para ver la app funcionando desde el primer inicio
   await seedDemoData(database);
 
@@ -207,7 +219,9 @@ export const initDB = async () => {
         "UPDATE stores SET source='local', claimed=1 WHERE source IS NULL AND owner_id != ?",
         [systemOwnerId]
       );
-    } catch {}
+    } catch (e) {
+      console.warn('[db] marking non-system stores as local/claimed failed', e);
+    }
   }
 };
 
@@ -450,7 +464,9 @@ const seedDemoData = async (database) => {
   const ensureOwner = (name, email, password) => {
     try {
       database.runSync('INSERT OR IGNORE INTO owners (name, email, password) VALUES (?, ?, ?)', [name, email, password]);
-    } catch {}
+    } catch (e) {
+      console.warn('[db] seedDemoData ensureOwner insert failed', e);
+    }
     return database.getFirstSync('SELECT id FROM owners WHERE email = ?', [email])?.id || null;
   };
 
@@ -571,7 +587,9 @@ const seedDemoData = async (database) => {
       'maria@mail.com',
       'demo1234',
     ]);
-  } catch {}
+  } catch (e) {
+    console.warn('[db] seedDemoData demo user insert failed', e);
+  }
 };
  
 // ─── USUARIOS (clientes) ──────────────────────────────────────────────────────
@@ -712,7 +730,9 @@ export const upsertGoogleStores = ({ city = null, country = null, places = [] } 
         );
         updated += 1;
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[db] upsertGoogleStores: skipping one place due to error', e);
+    }
   }
 
   return { inserted, updated };
@@ -803,7 +823,9 @@ export const upsertOsmStores = ({ city = null, country = null, elements = [] } =
         );
         updated += 1;
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[db] upsertOsmStores: skipping one element due to error', e);
+    }
   }
 
   return { inserted, updated };
@@ -884,8 +906,10 @@ export const trackEvent = (eventName, { storeId = null, userId = null, ownerId =
       .from('tracking_events')
       .insert(payload)
       .then(() => {})
-      .catch(() => {});
-  } catch {}
+      .catch((e) => console.warn('[db] trackEvent remote insert failed', e));
+  } catch (e) {
+    console.warn('[db] trackEvent failed', e);
+  }
 };
 
 export const countStoreEventsToday = (storeId, eventName) => {

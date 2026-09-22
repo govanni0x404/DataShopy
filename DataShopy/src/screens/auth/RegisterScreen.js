@@ -43,7 +43,9 @@ export default function RegisterScreen({ navigation }) {
       if (u?.id) {
         try {
           await upsertProfile({ id: u.id, role: 'customer', name: name.trim() });
-        } catch {}
+        } catch (e) {
+          console.warn('[Register] upsertProfile failed', e);
+        }
       }
       if (!data?.session) {
         Alert.alert(

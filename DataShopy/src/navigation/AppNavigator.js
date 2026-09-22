@@ -151,13 +151,17 @@ export default function AppNavigator() {
             onPress: () => {
               try {
                 Linking.openSettings();
-              } catch {}
+              } catch (e) {
+                console.warn('[AppNavigator] Linking.openSettings failed', e);
+              }
             },
           },
           { text: 'Reintentar', onPress: ensureLocation },
           { text: 'Ahora no', style: 'cancel' },
         ]);
-      } catch {}
+      } catch (e) {
+        console.warn('[AppNavigator] ensureLocation failed', e);
+      }
     };
     ensureLocation();
     const sub = AppState.addEventListener('change', (state) => {
@@ -188,7 +192,9 @@ export default function AppNavigator() {
         let profile = null;
         try {
           profile = await getProfile(user.id);
-        } catch {}
+        } catch (e) {
+          console.warn('[AppNavigator] getProfile during bootstrap failed', e);
+        }
 
         if (!mounted) return;
 

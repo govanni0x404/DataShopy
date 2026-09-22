@@ -34,7 +34,9 @@ export default function LoginScreen({ navigation }) {
       let profile = null;
       try {
         profile = await getProfile(u.id);
-      } catch {}
+      } catch (e) {
+        console.warn('[Login] getProfile failed', e);
+      }
       if (!profile) {
         try {
           profile = await upsertProfile({
@@ -42,7 +44,9 @@ export default function LoginScreen({ navigation }) {
             role: 'customer',
             name: u.user_metadata?.name || null,
           });
-        } catch {}
+        } catch (e) {
+          console.warn('[Login] upsertProfile fallback failed', e);
+        }
       }
       const nextUser = {
         id: u.id,

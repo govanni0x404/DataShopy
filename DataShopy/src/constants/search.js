@@ -96,9 +96,13 @@ const sharedPrefixLength = (a, b) => {
 
 const wordsAreRelated = (queryWord, hayWord) => {
   if (!queryWord || !hayWord) return false;
-  if (hayWord.includes(queryWord) || queryWord.includes(hayWord)) return true;
 
   const minLen = Math.min(queryWord.length, hayWord.length);
+  // Below this length a word is usually a stopword ("de", "y", "la"...)
+  // that happens to be a substring of almost anything — not a real match.
+  if (minLen < 3) return false;
+
+  if (hayWord.includes(queryWord) || queryWord.includes(hayWord)) return true;
   if (minLen < 4) return false;
 
   // Shared root: catches Spanish store-type derivations like

@@ -182,7 +182,9 @@ export default function OwnerDashScreen({ navigation, route }) {
             setSigningOut(true);
             try {
               await supabase.auth.signOut();
-            } catch {}
+            } catch (e) {
+              console.warn('[OwnerDash] signOut failed', e);
+            }
             const root = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
             if (root?.replace) root.replace('OwnerLogin');
             else navigation.navigate('OwnerLogin');

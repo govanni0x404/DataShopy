@@ -100,7 +100,9 @@ export default function ProfileScreen({ navigation, user }) {
             setSigningOut(true);
             try {
               await supabase.auth.signOut();
-            } catch {}
+            } catch (e) {
+              console.warn('[Profile] signOut failed', e);
+            }
             const root = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
             if (root?.replace) root.replace('Login');
             else navigation.navigate('Login');

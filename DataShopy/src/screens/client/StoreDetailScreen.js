@@ -68,7 +68,9 @@ export default function StoreDetailScreen({ navigation, route }) {
         });
         if (!mounted) return;
         setStore(getStoreById(storeId));
-      } catch {}
+      } catch (e) {
+        console.warn('[StoreDetail] syncStoreCoords failed', e);
+      }
     };
     syncStoreCoords();
     return () => {
@@ -99,7 +101,9 @@ export default function StoreDetailScreen({ navigation, route }) {
         importCatalogPromos({ promos: Array.isArray(data) ? data : [], source: 'supabase' });
         if (!mounted) return;
         setPromos(getPromosByStore(storeId));
-      } catch {}
+      } catch (e) {
+        console.warn('[StoreDetail] syncPromos failed', e);
+      }
     };
     syncPromos();
     return () => {
@@ -111,7 +115,9 @@ export default function StoreDetailScreen({ navigation, route }) {
     if (!storeId) return;
     try {
       trackEvent('store_view', { storeId, userId });
-    } catch {}
+    } catch (e) {
+      console.warn('[StoreDetail] trackEvent store_view failed', e);
+    }
   }, [storeId, userId]);
 
   const scheduleText = useMemo(() => {
@@ -126,7 +132,9 @@ export default function StoreDetailScreen({ navigation, route }) {
     if (!store?.phone) return;
     try {
       trackEvent('call_click', { storeId, userId, metadata: { phone: store.phone } });
-    } catch {}
+    } catch (e) {
+      console.warn('[StoreDetail] trackEvent call_click failed', e);
+    }
     const url = `tel:${store.phone}`;
     Linking.openURL(url);
   };
@@ -159,7 +167,9 @@ export default function StoreDetailScreen({ navigation, route }) {
         }
         destinationLabel =
           [data?.address, data?.city, data?.country].filter(Boolean).join(', ') || (data?.name ? String(data.name).trim() : destinationLabel);
-      } catch {}
+      } catch (e) {
+        console.warn('[StoreDetail] refreshing coords for directions failed', e);
+      }
     }
     const destinationByCoords = hasCoords ? `${lat},${lng}` : '';
     const destinationByAddress = destinationLabel;
@@ -175,7 +185,9 @@ export default function StoreDetailScreen({ navigation, route }) {
           lng: hasCoords ? lng : null,
         },
       });
-    } catch {}
+    } catch (e) {
+      console.warn('[StoreDetail] trackEvent directions_click failed', e);
+    }
 
     const openGoogleMaps = async ({ destination, isCoords }) => {
       const webDestination = isCoords ? destination : encodeURIComponent(destination);
@@ -192,7 +204,9 @@ export default function StoreDetailScreen({ navigation, route }) {
           await Linking.openURL(googleMapsAppUrl);
           return;
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[StoreDetail] opening Maps app failed, falling back to web', e);
+      }
       Linking.openURL(fallbackUrl);
     };
 
