@@ -29,10 +29,17 @@
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "edgeToEdgeEnabled": true,
-      "package": "com.govanni.DataShopy"
+      "package": "com.govanni.DataShopy",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,7 +51,15 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "DataShopy necesita acceso a tus fotos para subir el logo, la portada y la galería del negocio."
+          "photosPermission": "DataShopy necesita acceso a tus fotos para subir el logo, la portada y la galería del negocio.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Usamos tu ubicación para mostrar locales cercanos."
         }
       ],
       [

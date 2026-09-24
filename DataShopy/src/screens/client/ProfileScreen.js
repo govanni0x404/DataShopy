@@ -7,6 +7,8 @@ import { colors, radius, spacing, categories } from '../../constants/theme';
 
 const helpTint = categories.find((c) => c.id === 'tech') || { color: colors.primary, bg: colors.primaryLight };
 import { supabase } from '../../supabase/client';
+import { confirmAndDeleteAccount } from '../../supabase/account';
+import { isRemoteUser } from '../../supabase/favorites';
 
 function initialsFromName(name) {
   const n = (name || '').trim();
@@ -94,6 +96,31 @@ export default function ProfileScreen({ navigation, user }) {
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}>
+          <View style={[styles.menuIcon, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+          </View>
+          <Text style={styles.menuLabel}>Privacidad y términos</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Legal', { doc: 'terms' })}>
+          <View style={[styles.menuIcon, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+          </View>
+          <Text style={styles.menuLabel}>Términos y condiciones</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </TouchableOpacity>
+        {isRemoteUser(user?.id) && (
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => confirmAndDeleteAccount({ navigation, loginRoute: 'Login', setBusy: setSigningOut })}
+          >
+            <View style={[styles.menuIcon, styles.logoutIcon]}>
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            </View>
+            <Text style={styles.logoutText}>Eliminar mi cuenta</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[styles.menuItem, styles.logoutItem]}
           onPress={async () => {
@@ -115,7 +142,7 @@ export default function ProfileScreen({ navigation, user }) {
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
-      <LoadingOverlay visible={signingOut} label="Cerrando sesión..." />
+      <LoadingOverlay visible={signingOut} label="Procesando..." />
     </SafeAreaView>
   );
 }

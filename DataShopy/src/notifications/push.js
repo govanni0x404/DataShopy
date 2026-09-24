@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../supabase/client';
+import { getClientPreferences } from '../database/db';
 
 // Show a banner/alert even while the app is in the foreground (the default
 // behavior on both platforms is to stay silent while the app is open).
@@ -23,6 +24,13 @@ const getProjectId = () =>
 // simulators/emulators or if permission is denied, and never throws.
 export const registerForPushNotificationsAsync = async (userId) => {
   try {
+    // Respect the in-app switches (Configuración): no token = the server
+    // can't push to this user.
+    if (userId) {
+      const prefs = getClientPreferences(userId);
+      if (!prefs.notifications_enabled || !prefs.promo_alerts) return null;
+    }
+
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
@@ -64,5 +72,17 @@ export const registerForPushNotificationsAsync = async (userId) => {
   } catch (e) {
     console.warn('[push] registerForPushNotificationsAsync failed', e);
     return null;
+  }
+};
+
+// Removes this user's push token from the server (used when they turn
+// notifications off in Configuración).
+export const unregisterPushToken = async (userId) => {
+  if (!userId) return;
+  try {
+    const { error } = await supabase.from('profiles').update({ push_token: null }).eq('id', userId);
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[push] unregisterPushToken failed', e);
   }
 };

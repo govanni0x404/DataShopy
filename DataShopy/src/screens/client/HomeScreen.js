@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -13,10 +13,21 @@ import * as Location from 'expo-location';
 import CategoryFilter from '../../components/CategoryFilter';
 import StoreCard from '../../components/StoreCard';
 import { colors, spacing, radius, categories } from '../../constants/theme';
-import { storeMatchesQuery } from '../../constants/search';
-import { countActivePromos, getAllStores, getAppMeta, getClientPreferences, importCatalogStores, setAppMeta } from '../../database/db';
+import { rankStores } from '../../constants/search';
+import {
+  countActivePromos,
+  getActivePromoTexts,
+  getAllStores,
+  getAppMeta,
+  getClientPreferences,
+  importCatalogStores,
+  replaceActivePromoSnapshot,
+  replaceStoreRatings,
+  setAppMeta,
+} from '../../database/db';
 import { supabase } from '../../supabase/client';
 import { activePromoFilter } from '../../supabase/promos';
+import { syncFavorites } from '../../supabase/favorites';
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 const distanceKm = (a, b) => {
@@ -39,6 +50,9 @@ export default function HomeScreen({ navigation, route }) {
   const [query, setQuery] = useState('');
   const [stores, setStores] = useState([]);
   const [promoCounts, setPromoCounts] = useState({});
+  const [promoTexts, setPromoTexts] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
+  const mountedRef = useRef(true);
   const [locationStatus, setLocationStatus] = useState('idle'); // idle | granted | denied
   const [userCoords, setUserCoords] = useState(null); // {lat,lng}
   const [userCity, setUserCity] = useState(null);
@@ -55,11 +69,7 @@ export default function HomeScreen({ navigation, route }) {
     return found?.label || null;
   }, [selectedCategoryId]);
 
-  const filteredStores = useMemo(() => {
-    const q = query.trim();
-    if (!q) return stores;
-    return stores.filter((s) => storeMatchesQuery(s, q));
-  }, [query, stores]);
+  const filteredStores = useMemo(() => rankStores(stores, query.trim(), promoTexts), [query, stores, promoTexts]);
 
   const loadStores = () => {
     const list = getAllStores(selectedCategoryLabel);
@@ -69,6 +79,7 @@ export default function HomeScreen({ navigation, route }) {
       counts[store.id] = claimed ? countActivePromos(store.id) : 0;
     }
     setPromoCounts(counts);
+    setPromoTexts(getActivePromoTexts());
 
     const city = effectiveCity.toLowerCase();
     const withDistance = list.map((s) => {
@@ -258,77 +269,118 @@ export default function HomeScreen({ navigation, route }) {
   }, [stores, promoCounts, userCoords, user?.id, nearbyIgnore?.until]);
 
   useEffect(() => {
-    let mounted = true;
-    const syncCatalog = async () => {
-      const city = effectiveCity;
-      const syncKey = `sb_sync_city_v2:${city ? city.toLowerCase() : '__any__'}`;
-      const last = getAppMeta(syncKey);
-      const now = Date.now();
-      if (last) {
-        const lastMs = Date.parse(last);
-        if (!Number.isNaN(lastMs) && now - lastMs < 30 * 60 * 1000) return;
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Pulls the store catalog (and the active promotions of claimed stores) from
+  // Supabase into the local SQLite cache. Throttled to once per 30 min per
+  // city unless `force` (pull-to-refresh) is set.
+  const syncCatalog = async ({ force = false } = {}) => {
+    const city = effectiveCity;
+    const syncKey = `sb_sync_city_v2:${city ? city.toLowerCase() : '__any__'}`;
+    const last = getAppMeta(syncKey);
+    const now = Date.now();
+    if (!force && last) {
+      const lastMs = Date.parse(last);
+      if (!Number.isNaN(lastMs) && now - lastMs < 30 * 60 * 1000) return;
+    }
+
+    setGoogleNote('Sincronizando catálogo…');
+    try {
+      const STORE_COLUMNS =
+        'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls,keywords';
+      let q = supabase.from('stores').select(STORE_COLUMNS).limit(250);
+      if (city) q = q.eq('city', city);
+      let { data, error } = await q;
+      if (error) throw error;
+      if (city && Array.isArray(data) && data.length === 0) {
+        const fallback = await supabase.from('stores').select(STORE_COLUMNS).limit(250);
+        if (fallback.error) throw fallback.error;
+        data = fallback.data;
+      }
+      const rows = Array.isArray(data) ? data : [];
+      const mapped = rows.map((s) => ({
+        name: s.name,
+        category: s.category,
+        description: s.description,
+        address: s.address,
+        phone: s.phone,
+        schedule_weekday: s.schedule_weekday,
+        schedule_weekend: s.schedule_weekend,
+        emoji: s.emoji,
+        banner_color: s.banner_color,
+        city: s.city,
+        country: s.country,
+        lat: s.lat,
+        lng: s.lng,
+        source: s.source || 'supabase',
+        external_id: `sb:store/${s.id}`,
+        claimed: s.claimed ? 1 : 0,
+        claimed_at: s.claimed_at,
+        logo_url: s.logo_url || null,
+        cover_image_url: s.cover_image_url || null,
+        gallery_urls: s.gallery_urls || [],
+        keywords: s.keywords || null,
+      }));
+      const res = importCatalogStores({ stores: mapped, source: 'supabase' });
+
+      const claimedIds = rows.filter((s) => s.claimed).map((s) => s.id);
+      if (claimedIds.length) {
+        const { data: promoRows, error: promoError } = await supabase
+          .from('promotions')
+          .select('id,store_id,title,description,tag,expires_at,is_active,created_at')
+          .in('store_id', claimedIds)
+          .eq('is_active', true)
+          .or(activePromoFilter())
+          .limit(1000);
+        if (promoError) console.warn('[Home] syncing promotions failed', promoError);
+        else replaceActivePromoSnapshot({ promos: promoRows || [], storeIds: claimedIds });
       }
 
-      setGoogleNote('Sincronizando catálogo…');
-      try {
-        let q = supabase
-          .from('stores')
-          .select(
-            'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls,keywords'
-          )
-          .limit(250);
-        if (city) q = q.eq('city', city);
-        let { data, error } = await q;
-        if (error) throw error;
-        if (city && Array.isArray(data) && data.length === 0) {
-          const fallback = await supabase
-            .from('stores')
-            .select(
-              'id,name,category,description,address,phone,schedule_weekday,schedule_weekend,emoji,banner_color,city,country,lat,lng,source,claimed,claimed_at,logo_url,cover_image_url,gallery_urls,keywords'
-            )
-            .limit(250);
-          if (fallback.error) throw fallback.error;
-          data = fallback.data;
-        }
-        const mapped = (Array.isArray(data) ? data : []).map((s) => ({
-          name: s.name,
-          category: s.category,
-          description: s.description,
-          address: s.address,
-          phone: s.phone,
-          schedule_weekday: s.schedule_weekday,
-          schedule_weekend: s.schedule_weekend,
-          emoji: s.emoji,
-          banner_color: s.banner_color,
-          city: s.city,
-          country: s.country,
-          lat: s.lat,
-          lng: s.lng,
-          source: s.source || 'supabase',
-          external_id: `sb:store/${s.id}`,
-          claimed: s.claimed ? 1 : 0,
-          claimed_at: s.claimed_at,
-          logo_url: s.logo_url || null,
-          cover_image_url: s.cover_image_url || null,
-          gallery_urls: s.gallery_urls || [],
-          keywords: s.keywords || null,
-        }));
-        const res = importCatalogStores({ stores: mapped, source: 'supabase' });
-        setAppMeta(syncKey, new Date().toISOString());
-        setAppMeta('sb_sync_last', new Date().toISOString());
-        if (!mounted) return;
-        setGoogleNote(res.inserted || res.updated ? `Catálogo: +${res.inserted} / ~${res.updated}` : '');
-        loadStores();
-      } catch {
-        if (!mounted) return;
-        setGoogleNote('Catálogo: error de sincronización');
-      }
-    };
+      // Average rating per store (one row per store that has reviews).
+      const { data: ratingRows, error: ratingError } = await supabase
+        .from('store_rating_stats')
+        .select('store_id,rating_avg,rating_count')
+        .limit(1000);
+      if (ratingError) console.warn('[Home] syncing ratings failed', ratingError);
+      else replaceStoreRatings(ratingRows || []);
+
+      // Favorites reference cached stores, so reconcile once the catalog is in.
+      await syncFavorites(user?.id);
+
+      setAppMeta(syncKey, new Date().toISOString());
+      setAppMeta('sb_sync_last', new Date().toISOString());
+      if (!mountedRef.current) return;
+      setGoogleNote(res.inserted || res.updated ? `Catálogo: +${res.inserted} / ~${res.updated}` : '');
+      loadStores();
+    } catch (e) {
+      console.warn('[Home] catalog sync failed', e);
+      if (!mountedRef.current) return;
+      setGoogleNote('Catálogo: error de sincronización');
+    }
+  };
+
+  useEffect(() => {
     syncCatalog();
-    return () => {
-      mounted = false;
-    };
   }, [effectiveCity]);
+
+  // The catalog sync is throttled; favorites are cheap, so also reconcile them
+  // every time the signed-in user changes/opens Home.
+  useEffect(() => {
+    syncFavorites(user?.id);
+  }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await syncCatalog({ force: true });
+    } finally {
+      if (mountedRef.current) setRefreshing(false);
+    }
+  };
 
   const goToNotifications = () => {
     const maybeTabNav = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
@@ -354,6 +406,8 @@ export default function HomeScreen({ navigation, route }) {
       <FlatList
         data={filteredStores}
         keyExtractor={(item) => String(item.id)}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         numColumns={2}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.list}
@@ -439,6 +493,30 @@ export default function HomeScreen({ navigation, route }) {
             </View>
           </View>
         }
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name={query.trim() ? 'search' : 'storefront-outline'} size={26} color={colors.primary} />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {query.trim()
+                ? `No encontramos “${query.trim()}”`
+                : selectedCategoryId !== 'all'
+                  ? 'No hay locales en esta categoría'
+                  : 'Aún no hay locales para mostrar'}
+            </Text>
+            <Text style={styles.emptyDesc}>
+              {query.trim()
+                ? 'Prueba con otra palabra, un producto (ej. “pan”, “casco”) o una categoría.'
+                : 'Desliza hacia abajo para actualizar el catálogo.'}
+            </Text>
+            {!!query.trim() && (
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => setQuery('')}>
+                <Text style={styles.emptyBtnText}>Limpiar búsqueda</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        }
         renderItem={({ item }) => (
           <View style={styles.gridItem}>
             <StoreCard
@@ -455,6 +533,26 @@ export default function HomeScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
+  emptyWrap: { alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.xxl },
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  emptyDesc: { marginTop: 6, fontSize: 13, lineHeight: 19, color: colors.textSecondary, textAlign: 'center' },
+  emptyBtn: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 10,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryLight,
+  },
+  emptyBtnText: { fontSize: 13, fontWeight: '600', color: colors.primary },
   header: {
     height: 56,
     paddingHorizontal: spacing.lg,

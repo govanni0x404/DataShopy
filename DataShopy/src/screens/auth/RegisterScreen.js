@@ -116,6 +116,18 @@ export default function RegisterScreen({ navigation }) {
               <Text style={styles.btnText}>{loading ? 'Creando cuenta...' : 'Crear cuenta'}</Text>
             </TouchableOpacity>
 
+            <Text style={styles.legalNote}>
+              Al crear tu cuenta aceptas los{' '}
+              <Text style={styles.linkAccent} onPress={() => navigation.navigate('Legal', { doc: 'terms' })}>
+                Términos
+              </Text>{' '}
+              y la{' '}
+              <Text style={styles.linkAccent} onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}>
+                Política de privacidad
+              </Text>
+              .
+            </Text>
+
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Text style={styles.linkText}>¿Ya tienes cuenta? <Text style={styles.linkAccent}>Inicia sesión</Text></Text>
             </TouchableOpacity>
@@ -128,6 +140,7 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  legalNote: { fontSize: 12, color: colors.textTertiary, textAlign: 'center', lineHeight: 18, marginTop: 14 },
   safe: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 20 },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: colors.primaryLight },

@@ -1,4 +1,4 @@
-import { storeMatchesQuery } from '../search';
+import { rankStores, scoreStoreForQuery, storeMatchesQuery } from '../search';
 
 // Real catalog snapshot (Linares demo data) — used to guard against
 // regressions like the ones we actually hit while building this:
@@ -84,5 +84,73 @@ describe('storeMatchesQuery', () => {
   it('does not crash on stores with missing keywords/description', () => {
     expect(() => storeMatchesQuery({ name: 'Solo Nombre' }, 'nombre')).not.toThrow();
     expect(storeMatchesQuery({ name: 'Solo Nombre' }, 'nombre')).toBe(true);
+  });
+});
+
+describe('short synonyms must match whole words', () => {
+  it('"bebida" (synonym: bar) does not match "Farmacia de barrio"', () => {
+    // Regression: the synonym "bar" used to match as a raw substring of "barrio".
+    expect(storeMatchesQuery(pharmacy, 'bebida')).toBe(false);
+  });
+
+  it('still matches a real bar', () => {
+    expect(storeMatchesQuery({ name: 'Bar El Puerto', category: 'Local' }, 'bebida')).toBe(true);
+  });
+});
+
+describe('promo text is searchable', () => {
+  it('matches a store by the text of its active promotions', () => {
+    expect(storeMatchesQuery(bikeShop, '3x1', '3x1 en cascos')).toBe(true);
+    expect(storeMatchesQuery(bikeShop, '3x1')).toBe(false);
+  });
+});
+
+describe('scoreStoreForQuery', () => {
+  it('returns 0 when nothing matches and a positive score when it does', () => {
+    expect(scoreStoreForQuery(bikeShop, 'farmacia')).toBe(0);
+    expect(scoreStoreForQuery(bikeShop, 'bicicleta')).toBeGreaterThan(0);
+  });
+
+  it('scores a name hit above a keyword hit above a description hit', () => {
+    const byName = { name: 'Casco Total', category: 'Local' };
+    const byKeyword = { name: 'Tienda A', category: 'Local', keywords: 'casco, rueda' };
+    const byDescription = { name: 'Tienda B', category: 'Local', description: 'Vendemos cascos y más' };
+    const scores = [byName, byKeyword, byDescription].map((s) => scoreStoreForQuery(s, 'casco'));
+    expect(scores[0]).toBeGreaterThan(scores[1]);
+    expect(scores[1]).toBeGreaterThan(scores[2]);
+  });
+
+  it('scores an exact phrase above a fuzzy/typo match in the same field', () => {
+    const exact = { name: 'Manubrio Center' };
+    const typo = { name: 'Manubrios Rápidos' };
+    expect(scoreStoreForQuery(exact, 'manubrio')).toBeGreaterThanOrEqual(scoreStoreForQuery(typo, 'manubrio'));
+    expect(scoreStoreForQuery({ name: 'Manubrio Center' }, 'manurio')).toBeLessThan(scoreStoreForQuery(exact, 'manubrio'));
+  });
+});
+
+describe('rankStores', () => {
+  const far = { id: 1, name: 'Ciclos Lejanos', keywords: 'rueda' };
+  const near = { id: 2, name: 'Ciclos Cercanos', keywords: 'rueda' };
+  const nameHit = { id: 3, name: 'Rueda Feliz', keywords: '' };
+  const unrelated = { id: 4, name: 'Panadería', keywords: 'pan' };
+
+  it('returns the same list untouched for an empty query', () => {
+    const list = [far, near];
+    expect(rankStores(list, '')).toBe(list);
+  });
+
+  it('drops non-matching stores and puts the strongest match first', () => {
+    const result = rankStores([far, unrelated, nameHit], 'rueda');
+    expect(result.map((s) => s.id)).toEqual([3, 1]);
+  });
+
+  it('keeps the incoming order (distance) for equally scored stores', () => {
+    expect(rankStores([near, far], 'rueda').map((s) => s.id)).toEqual([2, 1]);
+    expect(rankStores([far, near], 'rueda').map((s) => s.id)).toEqual([1, 2]);
+  });
+
+  it('uses promo text by store id', () => {
+    const result = rankStores([unrelated, far], '2x1', { 4: '2x1 en pan amasado' });
+    expect(result.map((s) => s.id)).toEqual([4]);
   });
 });

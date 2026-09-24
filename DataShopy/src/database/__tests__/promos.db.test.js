@@ -83,3 +83,69 @@ describe('local promo expiry filtering (SQLite)', () => {
     expect(db.countActivePromos(2)).toBe(1);
   });
 });
+
+describe('getActivePromoTexts / replaceActivePromoSnapshot', () => {
+  const addStore = ({ name, externalId, claimed }) => {
+    const conn = db.getDB();
+    conn.runSync(
+      'INSERT INTO stores (owner_id, name, category, external_id, claimed) VALUES (?, ?, ?, ?, ?)',
+      [1, name, 'Local', externalId, claimed]
+    );
+    return conn.getFirstSync('SELECT id FROM stores WHERE external_id = ?', [externalId]).id;
+  };
+  const addPromo = (storeId, title, expiresAt = '2099-01-01', isActive = 1) =>
+    db.getDB().runSync(
+      'INSERT INTO promotions (store_id, title, description, tag, expires_at, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+      [storeId, title, '', '', expiresAt, isActive]
+    );
+
+  it('joins the text of active promos per claimed store and ignores expired/inactive/unclaimed ones', () => {
+    const claimed = addStore({ name: 'Claimed', externalId: 'sb:store/900', claimed: 1 });
+    const unclaimed = addStore({ name: 'Unclaimed', externalId: 'sb:store/901', claimed: 0 });
+    addPromo(claimed, '2x1 en cascos');
+    addPromo(claimed, 'Vencida', '2020-01-01');
+    addPromo(claimed, 'Apagada', '2099-01-01', 0);
+    addPromo(unclaimed, 'No debería verse');
+
+    const texts = db.getActivePromoTexts();
+    expect(texts[claimed]).toContain('2x1 en cascos');
+    expect(texts[claimed]).not.toContain('Vencida');
+    expect(texts[claimed]).not.toContain('Apagada');
+    expect(texts[unclaimed]).toBeUndefined();
+  });
+
+  it('snapshot switches off synced promos that the server no longer reports as active', () => {
+    addStore({ name: 'Tienda', externalId: 'sb:store/910', claimed: 1 });
+    const promo = (id, title) => ({ id, store_id: 910, title, expires_at: '2099-01-01', is_active: true });
+
+    db.replaceActivePromoSnapshot({ promos: [promo(1, 'Primera'), promo(2, 'Segunda')] });
+    const storeId = db.getDB().getFirstSync('SELECT id FROM stores WHERE external_id = ?', ['sb:store/910']).id;
+    expect(db.countActivePromos(storeId)).toBe(2);
+
+    // Promo 1 was deactivated on the server: next snapshot only contains #2.
+    db.replaceActivePromoSnapshot({ promos: [promo(2, 'Segunda')] });
+    expect(db.countActivePromos(storeId)).toBe(1);
+    expect(db.getPromosByStore(storeId)[0].title).toBe('Segunda');
+  });
+
+  it('with storeIds, only resets promos of those stores (other cities stay untouched)', () => {
+    addStore({ name: 'Ciudad A', externalId: 'sb:store/930', claimed: 1 });
+    addStore({ name: 'Ciudad B', externalId: 'sb:store/931', claimed: 1 });
+    const promo = (id, storeId, title) => ({ id, store_id: storeId, title, expires_at: '2099-01-01', is_active: true });
+    db.replaceActivePromoSnapshot({ promos: [promo(10, 930, 'A1'), promo(11, 931, 'B1')] });
+
+    // Sync of city A only (store 930): its promo was removed on the server.
+    db.replaceActivePromoSnapshot({ promos: [], storeIds: [930] });
+
+    const idOf = (ext) => db.getDB().getFirstSync('SELECT id FROM stores WHERE external_id = ?', [ext]).id;
+    expect(db.countActivePromos(idOf('sb:store/930'))).toBe(0);
+    expect(db.countActivePromos(idOf('sb:store/931'))).toBe(1);
+  });
+
+  it('does not touch local-only promos (no source) when snapshotting', () => {
+    const storeId = addStore({ name: 'Local', externalId: 'sb:store/920', claimed: 1 });
+    addPromo(storeId, 'Solo local'); // source is NULL
+    db.replaceActivePromoSnapshot({ promos: [] });
+    expect(db.countActivePromos(storeId)).toBe(1);
+  });
+});

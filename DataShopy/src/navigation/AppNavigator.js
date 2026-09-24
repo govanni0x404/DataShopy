@@ -33,6 +33,7 @@ import ClaimStoreScreen from '../screens/owner/ClaimStoreScreen';
 import OwnerBrandingScreen from '../screens/owner/OwnerBrandingScreen';
 import OwnerStatsScreen from '../screens/owner/OwnerStatsScreen';
 
+import LegalScreen from '../screens/LegalScreen';
 import AdminLoginScreen from '../screens/admin/AdminLoginScreen';
 import AdminClaimsScreen from '../screens/admin/AdminClaimsScreen';
 
@@ -246,6 +247,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="OwnerLogin" component={OwnerLoginScreen} />
+        <Stack.Screen name="Legal" component={LegalScreen} />
         <Stack.Screen name="AdminLogin" component={AdminLoginScreen} />
         <Stack.Screen name="AdminClaims" component={AdminClaimsScreen} />
         {/* Cliente (con tabs) */}

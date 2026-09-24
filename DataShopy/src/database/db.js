@@ -178,6 +178,8 @@ export const initDB = async () => {
     { name: 'cover_image_url', type: 'TEXT' },
     { name: 'gallery_urls', type: 'TEXT' },
     { name: 'keywords', type: 'TEXT' },
+    { name: 'rating_avg', type: 'REAL' },
+    { name: 'rating_count', type: 'INTEGER DEFAULT 0' },
   ]);
 
   ensureColumns(database, 'promotions', [
@@ -655,6 +657,15 @@ export const getStoreById = (id) => {
   return db.getFirstSync('SELECT * FROM stores WHERE id = ?', [id]);
 };
 
+// Local store row id -> Supabase store id (stores are cached as `sb:store/<id>`);
+// null for stores that only exist locally.
+export const getSupabaseStoreId = (localStoreId) => {
+  const ext = String(getStoreById(localStoreId)?.external_id || '');
+  if (!ext.startsWith('sb:store/')) return null;
+  const id = Number(ext.slice('sb:store/'.length));
+  return Number.isFinite(id) && id > 0 ? id : null;
+};
+
 export const getStoreByExternalId = (externalId) => {
   const db = getDB();
   if (!externalId) return null;
@@ -1030,6 +1041,48 @@ export const deletePromo = (id) => {
   db.runSync('UPDATE promotions SET is_active = 0 WHERE id = ?', [id]);
 };
  
+// Searchable text ("title tag description") of every store's currently
+// active promotions, keyed by local store id. Only claimed stores show promos.
+export const getActivePromoTexts = () => {
+  const db = getDB();
+  const rows = db.getAllSync(
+    `SELECT p.store_id, p.title, p.tag, p.description
+     FROM promotions p
+     JOIN stores s ON s.id = p.store_id
+     WHERE p.is_active = 1 AND s.claimed = 1
+       AND (p.expires_at IS NULL OR p.expires_at = '' OR date(p.expires_at) >= date('now'))`
+  );
+  const map = {};
+  for (const row of rows) {
+    const text = `${row.title || ''} ${row.tag || ''} ${row.description || ''}`.trim();
+    map[row.store_id] = map[row.store_id] ? `${map[row.store_id]} ${text}` : text;
+  }
+  return map;
+};
+
+// Replaces the local copy of server promotions with a fresh snapshot of the
+// ones that are active right now: anything previously synced that is no
+// longer in `promos` (deactivated/expired on the server) is switched off.
+// When `storeIds` (Supabase store ids) is given, only those stores' promos
+// are reset, so syncing one city never switches off another city's promos.
+export const replaceActivePromoSnapshot = ({ promos = [], source = 'supabase', storeIds = null } = {}) => {
+  const db = getDB();
+  if (Array.isArray(storeIds)) {
+    if (storeIds.length) {
+      const externalIds = storeIds.map((id) => `sb:store/${id}`);
+      const placeholders = externalIds.map(() => '?').join(',');
+      db.runSync(
+        `UPDATE promotions SET is_active = 0
+         WHERE source = ? AND store_id IN (SELECT id FROM stores WHERE external_id IN (${placeholders}))`,
+        [source, ...externalIds]
+      );
+    }
+  } else {
+    db.runSync('UPDATE promotions SET is_active = 0 WHERE source = ?', [source]);
+  }
+  return importCatalogPromos({ promos, source });
+};
+
 export const countActivePromos = (storeId) => {
   const db = getDB();
   const result = db.getFirstSync(
@@ -1136,6 +1189,39 @@ export const toggleFavoriteStore = (userId, storeId) => {
   }
   db.runSync('INSERT OR IGNORE INTO favorite_stores (user_id, store_id) VALUES (?, ?)', [key, storeId]);
   return { isFavorite: true };
+};
+
+export const setFavoriteStore = (userId, storeId, isFavorite) => {
+  if (!storeId) return;
+  const db = getDB();
+  const key = safeClientKey(userId);
+  if (isFavorite) db.runSync('INSERT OR IGNORE INTO favorite_stores (user_id, store_id) VALUES (?, ?)', [key, storeId]);
+  else db.runSync('DELETE FROM favorite_stores WHERE user_id = ? AND store_id = ?', [key, storeId]);
+};
+
+// ─── Ratings (cached copy of the server-side store_rating_stats view) ──────────
+// `rows` = [{ store_id, rating_avg, rating_count }] with Supabase store ids.
+// Stores that are not in `rows` have no reviews (anymore), so they are reset.
+export const replaceStoreRatings = (rows = []) => {
+  const db = getDB();
+  db.runSync("UPDATE stores SET rating_avg = NULL, rating_count = 0 WHERE external_id LIKE 'sb:store/%'");
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const avg = Number(row?.rating_avg);
+    const count = Number(row?.rating_count);
+    if (!row?.store_id || Number.isNaN(avg) || Number.isNaN(count)) continue;
+    db.runSync('UPDATE stores SET rating_avg = ?, rating_count = ? WHERE external_id = ?', [avg, count, `sb:store/${row.store_id}`]);
+  }
+};
+
+export const setStoreRatingLocal = (storeId, avg, count) => {
+  if (!storeId) return;
+  const db = getDB();
+  const hasReviews = Number(count) > 0;
+  db.runSync('UPDATE stores SET rating_avg = ?, rating_count = ? WHERE id = ?', [
+    hasReviews ? Number(avg) : null,
+    hasReviews ? Number(count) : 0,
+    storeId,
+  ]);
 };
 
 export const getFavoriteStores = (userId) => {

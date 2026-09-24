@@ -3,10 +3,13 @@ import { Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, Touchabl
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PromoCard from '../../components/PromoCard';
+import ReviewsSection from '../../components/ReviewsSection';
+import { Stars } from '../../components/StarRating';
 import { colors, radius, spacing, categories } from '../../constants/theme';
-import { getPromosByStore, getStoreById, importCatalogPromos, importCatalogStores, isFavoriteStore, toggleFavoriteStore, trackEvent } from '../../database/db';
+import { getPromosByStore, getStoreById, importCatalogStores, isFavoriteStore, replaceActivePromoSnapshot, toggleFavoriteStore, trackEvent } from '../../database/db';
 import { supabase } from '../../supabase/client';
 import { activePromoFilter } from '../../supabase/promos';
+import { pushFavoriteChange } from '../../supabase/favorites';
 
 export default function StoreDetailScreen({ navigation, route }) {
   const storeId = route.params?.storeId;
@@ -98,7 +101,7 @@ export default function StoreDetailScreen({ navigation, route }) {
           .or(activePromoFilter())
           .limit(50);
         if (error) throw error;
-        importCatalogPromos({ promos: Array.isArray(data) ? data : [], source: 'supabase' });
+        replaceActivePromoSnapshot({ promos: Array.isArray(data) ? data : [], storeIds: [supaStoreId] });
         if (!mounted) return;
         setPromos(getPromosByStore(storeId));
       } catch (e) {
@@ -242,9 +245,13 @@ export default function StoreDetailScreen({ navigation, route }) {
     }
   }, [store?.gallery_urls]);
 
+  // Reviews update the cached rating; re-read the row so the header reflects it.
+  const refreshStoreFromCache = () => setStore(getStoreById(storeId));
+
   const handleToggleFavorite = () => {
     const result = toggleFavoriteStore(userId, storeId);
     setFavorite(result.isFavorite);
+    pushFavoriteChange(userId, storeId, result.isFavorite);
   };
 
   if (!store) {
@@ -304,6 +311,14 @@ export default function StoreDetailScreen({ navigation, route }) {
               </View>
             )}
           </View>
+          {Number(store.rating_count) > 0 && (
+            <View style={styles.ratingRow}>
+              <Stars value={Number(store.rating_avg)} size={15} />
+              <Text style={styles.ratingText}>
+                {Number(store.rating_avg).toFixed(1)} · {store.rating_count} {Number(store.rating_count) === 1 ? 'reseña' : 'reseñas'}
+              </Text>
+            </View>
+          )}
           {store.description ? <Text style={styles.desc}>{store.description}</Text> : null}
 
           <View style={styles.actionRow}>
@@ -379,6 +394,8 @@ export default function StoreDetailScreen({ navigation, route }) {
           ) : (
             promos.map((p) => <PromoCard key={String(p.id)} promo={p} />)
           )}
+
+          <ReviewsSection storeId={storeId} userId={userId} onStatsChange={refreshStoreFromCache} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -421,6 +438,8 @@ const styles = StyleSheet.create({
   heroEmoji: { fontSize: 64 },
   body: { padding: spacing.lg },
   name: { fontSize: 22, fontWeight: '500', color: colors.text },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  ratingText: { fontSize: 12, color: colors.textSecondary },
   metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 6, marginBottom: 12 },
   categoryBadge: {
     alignSelf: 'flex-start',

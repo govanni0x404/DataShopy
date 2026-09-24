@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet, Image } from 'react-native';
 import { colors, radius, spacing, categories } from '../constants/theme';
+import { RatingBadge } from './StarRating';
 
 function getCategoryMeta(categoryLabel) {
   const normalized = String(categoryLabel || '').trim().toLowerCase();
@@ -34,6 +35,7 @@ export default function StoreCard({ store, promoCount, onPress }) {
           </View>
         )}
         {!!store.city && <Text style={styles.city} numberOfLines={1}>{store.city}</Text>}
+        <RatingBadge avg={store.rating_avg} count={store.rating_count} />
         {promoCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>

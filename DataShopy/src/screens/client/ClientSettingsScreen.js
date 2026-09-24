@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../constants/theme';
 import { getClientPreferences, saveClientPreferences } from '../../database/db';
+import { registerForPushNotificationsAsync, unregisterPushToken } from '../../notifications/push';
+import { isRemoteUser } from '../../supabase/favorites';
 
 const RADIUS_OPTIONS = [
   { label: '100 m', value: 0.1 },
@@ -42,6 +44,13 @@ export default function ClientSettingsScreen({ navigation, route }) {
     const next = { ...prefs, [key]: value };
     setPrefs(next);
     saveClientPreferences(user?.id, { [key]: value });
+
+    // Push notifications follow these switches: turning either off removes
+    // the device token from the server, turning both back on registers it.
+    if ((key === 'notifications_enabled' || key === 'promo_alerts') && isRemoteUser(user?.id)) {
+      if (next.notifications_enabled && next.promo_alerts) registerForPushNotificationsAsync(user.id);
+      else unregisterPushToken(user.id);
+    }
   };
 
   return (

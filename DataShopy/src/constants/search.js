@@ -116,35 +116,95 @@ const wordsAreRelated = (queryWord, hayWord) => {
   return editDistance(queryWord, hayWord) <= maxDistance;
 };
 
-export const storeMatchesQuery = (store, rawQuery) => {
+// How much each field of a store counts towards its relevance score. A hit
+// in the name is worth far more than one buried in the description.
+const FIELD_WEIGHTS = { name: 100, keywords: 60, category: 40, promos: 35, description: 25 };
+
+// How strongly a field matched: exact phrase > synonym > related word.
+const STRENGTH = { phrase: 1, synonym: 0.8, related: 0.6, relatedSynonym: 0.5 };
+
+const prepareQuery = (rawQuery) => {
   const q = normalize(rawQuery);
-  if (!q) return true;
-
-  const haystackText = normalize(
-    `${store?.name || ''} ${store?.category || ''} ${store?.description || ''} ${store?.keywords || ''}`
-  );
-  if (haystackText.includes(q)) return true;
-
+  if (!q) return null;
   const queryWords = tokenize(rawQuery);
   const synonymWords = new Set();
   for (const w of queryWords) {
     const extra = NORMALIZED_SYNONYMS[w];
     if (extra) for (const term of extra) synonymWords.add(term);
   }
-  for (const term of synonymWords) {
-    if (haystackText.includes(term)) return true;
-  }
+  return { q, queryWords, synonymWords: [...synonymWords] };
+};
 
-  const haystackWords = tokenize(haystackText);
-  for (const qw of queryWords) {
-    for (const hw of haystackWords) {
-      if (wordsAreRelated(qw, hw)) return true;
+// Synonyms shorter than 4 letters ("bar", "spa", "gym") must match a whole
+// word, otherwise "bar" would match "ba-rrio" in "farmacia de barrio".
+const textHasTerm = (text, words, term) => (term.length < 4 ? words.includes(term) : text.includes(term));
+
+const fieldStrength = (rawValue, ctx) => {
+  const text = normalize(rawValue);
+  if (!text) return 0;
+  if (text.includes(ctx.q)) return STRENGTH.phrase;
+
+  const words = tokenize(text);
+  for (const term of ctx.synonymWords) {
+    if (textHasTerm(text, words, term)) return STRENGTH.synonym;
+  }
+  for (const qw of ctx.queryWords) {
+    for (const hw of words) {
+      if (wordsAreRelated(qw, hw)) return STRENGTH.related;
     }
   }
-  for (const term of synonymWords) {
-    for (const hw of haystackWords) {
-      if (wordsAreRelated(term, hw)) return true;
+  for (const term of ctx.synonymWords) {
+    if (term.length < 4) continue; // short synonyms only count as whole words (handled above)
+    for (const hw of words) {
+      if (wordsAreRelated(term, hw)) return STRENGTH.relatedSynonym;
     }
   }
-  return false;
+  return 0;
+};
+
+const scoreWithContext = (store, ctx, promoText) => {
+  if (!store) return 0;
+  const fields = {
+    name: store.name,
+    keywords: store.keywords,
+    category: store.category,
+    promos: promoText,
+    description: store.description,
+  };
+  let best = 0;
+  let matchedFields = 0;
+  for (const [field, value] of Object.entries(fields)) {
+    const strength = fieldStrength(value, ctx);
+    if (strength <= 0) continue;
+    matchedFields += 1;
+    best = Math.max(best, FIELD_WEIGHTS[field] * strength);
+  }
+  // Small bonus for matching in several fields, so it can break ties but
+  // never outrank a stronger single-field match.
+  return best > 0 ? best + (matchedFields - 1) * 2 : 0;
+};
+
+// Relevance score for one store: 0 means "does not match". An empty query
+// matches everything.
+export const scoreStoreForQuery = (store, rawQuery, promoText = '') => {
+  const ctx = prepareQuery(rawQuery);
+  if (!ctx) return 1;
+  return scoreWithContext(store, ctx, promoText);
+};
+
+export const storeMatchesQuery = (store, rawQuery, promoText = '') => scoreStoreForQuery(store, rawQuery, promoText) > 0;
+
+// Filters and orders stores by relevance to the query. Ties keep the input
+// order (the caller sorts by distance first, so nearer stores win ties).
+// `promoTextByStore` maps store.id -> searchable text of its active promos.
+export const rankStores = (stores, rawQuery, promoTextByStore = {}) => {
+  const ctx = prepareQuery(rawQuery);
+  if (!ctx) return stores;
+  const scored = [];
+  stores.forEach((store, index) => {
+    const score = scoreWithContext(store, ctx, promoTextByStore[store.id] || '');
+    if (score > 0) scored.push({ store, score, index });
+  });
+  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  return scored.map((entry) => entry.store);
 };

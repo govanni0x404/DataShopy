@@ -3,6 +3,7 @@ import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import AdminReviewsPanel from './AdminReviewsPanel';
 import { colors, radius, spacing } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 
@@ -249,7 +250,7 @@ export default function AdminClaimsScreen({ navigation }) {
         >
           <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{tab === 'claims' ? 'Reclamos' : tab === 'catalog' ? 'Catálogo' : 'Usuarios'}</Text>
+        <Text style={styles.headerTitle}>{tab === 'claims' ? 'Reclamos' : tab === 'catalog' ? 'Catálogo' : tab === 'reviews' ? 'Reseñas' : 'Usuarios'}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={load} disabled={loading}>
           <Ionicons name="refresh" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
@@ -276,6 +277,13 @@ export default function AdminClaimsScreen({ navigation }) {
           activeOpacity={0.85}
         >
           <Text style={[styles.tabText, tab === 'users' && styles.tabTextActive]}>Usuarios</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, tab === 'reviews' && styles.tabBtnActive]}
+          onPress={() => setTab('reviews')}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.tabText, tab === 'reviews' && styles.tabTextActive]}>Reseñas</Text>
         </TouchableOpacity>
       </View>
 
@@ -311,6 +319,8 @@ export default function AdminClaimsScreen({ navigation }) {
             </View>
           }
         />
+      ) : tab === 'reviews' ? (
+        <AdminReviewsPanel />
       ) : tab === 'catalog' ? (
         <FlatList
           data={filteredStores}
