@@ -4,7 +4,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -197,8 +197,22 @@ export default function ReviewsSection({ storeId, userId, onStatsChange }) {
         </>
       )}
 
-      <Modal visible={formOpen} transparent animationType="slide" onRequestClose={() => !saving && setFormOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
+      <Modal
+        visible={formOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => !saving && setFormOpen(false)}
+      >
+        {/* Centered card that lifts with the keyboard, so the text and the buttons are never covered
+            (Android edge-to-edge does not resize the window for us). */}
+        <KeyboardAvoidingView behavior="padding" style={styles.backdrop}>
+          <ScrollView
+            contentContainerStyle={styles.backdropContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>{mine ? 'Editar mi reseña' : 'Tu reseña'}</Text>
             <View style={{ alignItems: 'center', marginVertical: spacing.md }}>
@@ -231,6 +245,7 @@ export default function ReviewsSection({ storeId, userId, onStatsChange }) {
               </TouchableOpacity>
             </View>
           </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -272,13 +287,12 @@ const styles = StyleSheet.create({
   author: { fontSize: 13, fontWeight: '600', color: colors.text },
   date: { fontSize: 11, color: colors.textTertiary, marginTop: 1 },
   comment: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.text },
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  backdropContent: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg },
   sheet: {
     backgroundColor: colors.bg,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+    borderRadius: radius.xl,
     padding: spacing.lg,
-    paddingBottom: spacing.xl,
   },
   sheetTitle: { fontSize: 17, fontWeight: '700', color: colors.text, textAlign: 'center' },
   input: {
