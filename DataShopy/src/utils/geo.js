@@ -39,3 +39,10 @@ export const cityOfNearestStore = (stores, coords, maxKm = 40) => {
   }
   return bestKm <= maxKm ? best : null;
 };
+
+// "10 min a pie" / "7 min en auto" from a straight-line distance (rough urban speeds).
+export const travelEstimate = (km) => {
+  if (km == null || !Number.isFinite(km)) return null;
+  if (km <= 1.5) return { mode: 'walk', minutes: Math.max(1, Math.ceil((km / 5) * 60)) };
+  return { mode: 'drive', minutes: Math.max(1, Math.ceil((km * 1.3 / 30) * 60)) };
+};

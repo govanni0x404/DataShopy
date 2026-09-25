@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local en DataShopy</title>
+<meta property="og:title" content="Descubre este local en DataShopy">
+<meta property="og:description" content="Locales y promociones cerca de ti.">
+<style>
+  :root{--bg:#fff;--card:#f6f3ff;--text:#1c1b22;--muted:#6b6880;--primary:#7c4deb;--accent:#ff8a4c}
+  @media (prefers-color-scheme: dark){:root{--bg:#15141a;--card:#221f2d;--text:#eceaf3;--muted:#a09cb5}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  main{max-width:520px;margin:0 auto;padding:28px 18px 40px}
+  .brand{font-weight:800;color:var(--primary);letter-spacing:.2px;margin-bottom:18px}
+  .card{background:var(--card);border-radius:20px;padding:22px}
+  .emoji{font-size:44px}
+  h1{margin:6px 0 2px;font-size:24px}
+  .meta{color:var(--muted);font-size:14px}
+  .promo{margin-top:16px;padding:12px 14px;border-radius:14px;background:#ffe9dc;color:#7a3410;font-weight:700}
+  .promo small{display:block;font-weight:600;opacity:.8}
+  .btn{display:block;text-align:center;text-decoration:none;font-weight:700;border-radius:14px;padding:14px;margin-top:12px}
+  .primary{background:var(--primary);color:#fff}
+  .ghost{border:1.5px solid var(--primary);color:var(--primary)}
+  .note{margin-top:22px;font-size:12px;color:var(--muted);text-align:center}
+  .error{padding:30px 10px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">DataShopy</div>
+  <div id="root"><div class="error">Cargando…</div></div>
+  <p class="note">Abre este enlace en tu teléfono con DataShopy instalada para ver el local dentro de la app.</p>
+</main>
+<script>
+  // Public, read-only data: the publishable key is meant to be shipped in clients (RLS protects the data).
+  var SUPABASE_URL = 'https://vwmdgxwxqedhhsqgxhoe.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_kTg7RHdR0-vOkNxAQb4fdA_zykt4ySY';
+  var root = document.getElementById('root');
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text; // textContent: never inject store data as HTML
+    return n;
+  }
+  function show(msg) { root.replaceChildren(el('div', 'error', msg)); }
+  function api(path) {
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: { apikey: SUPABASE_KEY } }).then(function (r) {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json();
+    });
+  }
+
+  var id = parseInt(new URLSearchParams(location.search).get('id'), 10);
+  if (!id || id < 1) {
+    show('Este enlace no es válido.');
+  } else {
+    Promise.all([
+      api('stores?id=eq.' + id + '&select=name,category,address,city,emoji,description,schedule_weekday,schedule_weekend&limit=1'),
+      api('promotions?store_id=eq.' + id + '&is_active=eq.true&select=title,expires_at&order=created_at.desc&limit=10')
+    ]).then(function (res) {
+      var store = res[0][0];
+      if (!store) return show('No encontramos este local.');
+      document.title = store.name + ' · DataShopy';
+
+      var today = new Date().toISOString().slice(0, 10);
+      var promo = res[1].filter(function (p) { return !p.expires_at || p.expires_at >= today; })[0];
+      var place = [store.address, store.city].filter(Boolean).join(', ');
+
+      var card = el('div', 'card');
+      card.appendChild(el('div', 'emoji', store.emoji || '🏪'));
+      card.appendChild(el('h1', null, store.name));
+      card.appendChild(el('div', 'meta', [store.category, store.city].filter(Boolean).join(' · ')));
+      if (place) card.appendChild(el('div', 'meta', '📍 ' + place));
+      var hours = [store.schedule_weekday, store.schedule_weekend].filter(Boolean).join(' · ');
+      if (hours) card.appendChild(el('div', 'meta', '🕒 ' + hours));
+      if (promo) {
+        var p = el('div', 'promo', '🎁 ' + promo.title);
+        if (promo.expires_at) p.appendChild(el('small', null, 'Vence: ' + promo.expires_at));
+        card.appendChild(p);
+      }
+
+      var open = el('a', 'btn primary', 'Abrir en la app');
+      open.href = 'datashopy://store/' + id;
+      card.appendChild(open);
+      if (place) {
+        var map = el('a', 'btn ghost', 'Cómo llegar');
+        map.href = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(place);
+        card.appendChild(map);
+      }
+      root.replaceChildren(card);
+    }).catch(function () { show('No pudimos cargar el local. Inténtalo de nuevo más tarde.'); });
+  }
+</script>
+</body>
+</html>

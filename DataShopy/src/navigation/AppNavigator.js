@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Linking, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,8 @@ import { colors } from '../constants/theme';
 import { supabase } from '../supabase/client';
 import { getProfile } from '../supabase/profile';
 import { registerForPushNotificationsAsync } from '../notifications/push';
+import { parseStoreLink } from '../utils/deepLinks';
+import { openStoreFromLink } from './openStoreLink';
 import { getNewsCount, refreshNewsCount, subscribeNewsCount } from '../supabase/newsBadge';
 
 // Auth
@@ -33,6 +35,7 @@ import EditStoreScreen from '../screens/owner/EditStoreScreen';
 import ClaimStoreScreen from '../screens/owner/ClaimStoreScreen';
 import OwnerBrandingScreen from '../screens/owner/OwnerBrandingScreen';
 import OwnerStatsScreen from '../screens/owner/OwnerStatsScreen';
+import OwnerReviewsScreen from '../screens/owner/OwnerReviewsScreen';
 
 import LegalScreen from '../screens/LegalScreen';
 import AdminLoginScreen from '../screens/admin/AdminLoginScreen';
@@ -142,16 +145,48 @@ function OwnerStackScreen({ route }) {
       <OwnerStack.Screen name="ClaimStore" component={ClaimStoreScreen} />
       <OwnerStack.Screen name="OwnerBranding" component={OwnerBrandingScreen} />
       <OwnerStack.Screen name="OwnerStats" component={OwnerStatsScreen} />
+      <OwnerStack.Screen name="OwnerReviews" component={OwnerReviewsScreen} />
     </OwnerStack.Navigator>
   );
 }
 
 // ─── Navegador raíz ───────────────────────────────────────────────────────────
+const navigationRef = createNavigationContainerRef();
+
 export default function AppNavigator() {
   const [booting, setBooting] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [initialParams, setInitialParams] = useState(undefined);
   const lastLocationPromptAtRef = useRef(0);
+  const pendingStoreRef = useRef(null);
+
+  // Store deep links (datashopy://store/<id>): remembered until the client app is on screen
+  // (e.g. the user still has to pick "guest" or log in), then the store detail is opened.
+  const openPendingStore = async () => {
+    const supaId = pendingStoreRef.current;
+    if (!supaId || !navigationRef.isReady()) return;
+    const root = navigationRef.getRootState();
+    const current = root?.routes?.[root.index];
+    if (current?.name !== 'ClientApp') return;
+    pendingStoreRef.current = null;
+    try {
+      await openStoreFromLink(navigationRef, supaId, current.params?.user?.id);
+    } catch (e) {
+      console.warn('[AppNavigator] opening store link failed', e);
+    }
+  };
+
+  useEffect(() => {
+    const handle = (url) => {
+      const id = parseStoreLink(url);
+      if (!id) return;
+      pendingStoreRef.current = id;
+      openPendingStore();
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => handle(url));
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -259,7 +294,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} onReady={openPendingStore} onStateChange={openPendingStore}>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
         {/* Auth */}
         <Stack.Screen name="Login" component={LoginScreen} />

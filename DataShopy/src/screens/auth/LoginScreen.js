@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView,
-  Platform, Alert, ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert } from 'react-native';
+import AuthLayout, { AuthButton, AuthDivider, AuthInput, AuthLink, AuthLinks } from '../../components/AuthLayout';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import { colors, radius, spacing } from '../../constants/theme';
-import AppVersion from '../../components/AppVersion';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
 import { registerForPushNotificationsAsync } from '../../notifications/push';
@@ -69,147 +62,39 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.form}>
-            <Text style={styles.formTitle}>Ingresa a tu cuenta</Text>
-            <Text style={styles.formSub}>Tu catálogo y favoritos quedan listos al instante.</Text>
-            <Text style={styles.fieldLabel}>Correo electrónico</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tu@correo.com"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+    <>
+      <AuthLayout title="Ingresa a tu cuenta" subtitle="Tu catálogo y favoritos quedan listos al instante.">
+        <AuthInput
+          icon="mail-outline"
+          label="Correo electrónico"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="tu@correo.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
+        <AuthInput
+          icon="lock-closed-outline"
+          label="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="••••••••"
+          password
+          showPassword={showPass}
+          onTogglePassword={() => setShowPass(!showPass)}
+        />
 
-            <Text style={styles.fieldLabel}>Contraseña</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor={colors.textTertiary}
-                secureTextEntry={!showPass}
-              />
-              <TouchableOpacity
-                style={[styles.eyeBtn, showPass && styles.eyeBtnActive]}
-                onPress={() => setShowPass(!showPass)}
-              >
-                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
+        <AuthButton label={loading ? 'Ingresando...' : 'Ingresar'} onPress={handleLogin} disabled={loading} />
+        <AuthDivider />
+        <AuthButton variant="secondary" icon="compass-outline" label="Explorar como invitado" onPress={handleGuest} disabled={loading} />
 
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
-              <Text style={styles.btnPrimaryText}>{loading ? 'Ingresando...' : 'Ingresar'}</Text>
-            </TouchableOpacity>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.line} />
-              <Text style={styles.dividerText}>o</Text>
-              <View style={styles.line} />
-            </View>
-
-            <TouchableOpacity style={styles.btnSecondary} onPress={handleGuest} activeOpacity={0.8}>
-              <Text style={styles.btnSecondaryText}>Continuar como invitado</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.linkText}>¿No tienes cuenta? <Text style={styles.linkAccent}>Regístrate aquí</Text></Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => navigation.navigate('OwnerLogin')}>
-              <Text style={styles.linkText}>¿Tienes un local? <Text style={styles.linkAccentAlt}>Inicia sesión aquí</Text></Text>
-            </TouchableOpacity>
-
-            {/* Acceso rápido demo 
-            <View style={styles.demoBox}>
-              <Text style={styles.demoTitle}>Demo rápido</Text>
-              <Text style={styles.demoText}>Las credenciales demo locales ya no aplican.</Text>
-              <Text style={styles.demoText}>Crea tu cuenta en “Regístrate aquí”.</Text>
-            </View>
-            */}
-          </View>
-        </ScrollView>
-        <AppVersion />
-      </KeyboardAvoidingView>
+        <AuthLinks>
+          <AuthLink prefix="¿No tienes cuenta?" action="Regístrate aquí" onPress={() => navigation.navigate('Register')} />
+          <AuthLink prefix="¿Tienes un local?" action="Inicia sesión aquí" alt onPress={() => navigation.navigate('OwnerLogin')} />
+        </AuthLinks>
+      </AuthLayout>
       <LoadingOverlay visible={loading} label="Ingresando..." />
-    </SafeAreaView>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 24 },
-  form: {
-    marginHorizontal: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: 24,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  formTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
-  formSub: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
-  fieldLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
-  input: {
-    borderWidth: 0.5,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: 12,
-    fontSize: 14,
-    color: colors.text,
-    backgroundColor: colors.bgSecondary,
-  },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { padding: 10, borderRadius: radius.full },
-  eyeBtnActive: { backgroundColor: colors.primaryLight },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  btnPrimaryText: { color: colors.white, fontSize: 15, fontWeight: '600' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 },
-  line: { flex: 1, height: 0.5, backgroundColor: colors.border },
-  dividerText: { fontSize: 12, color: colors.textTertiary },
-  btnSecondary: {
-    borderWidth: 1.5,
-    borderColor: colors.secondary,
-    borderRadius: radius.md,
-    padding: 13,
-    alignItems: 'center',
-    marginBottom: 16,
-    backgroundColor: colors.secondaryLight,
-  },
-  btnSecondaryText: { color: colors.secondary, fontSize: 14, fontWeight: '600' },
-  linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary, marginBottom: 10 },
-  linkAccent: { color: colors.primary, fontWeight: '600' },
-  linkAccentAlt: { color: colors.secondary, fontWeight: '600' },
-  demoBox: {
-    marginTop: 20,
-    backgroundColor: colors.bgSecondary,
-    borderRadius: radius.md,
-    padding: 12,
-    marginBottom: 32,
-  },
-  demoTitle: { fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 },
-  demoText: { fontSize: 12, color: colors.textTertiary },
-});

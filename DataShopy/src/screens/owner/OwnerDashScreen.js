@@ -17,6 +17,7 @@ export default function OwnerDashScreen({ navigation, route }) {
   const [visitsToday, setVisitsToday] = useState(0);
   const [callClicksToday, setCallClicksToday] = useState(0);
   const [directionsToday, setDirectionsToday] = useState(0);
+  const [pendingReviews, setPendingReviews] = useState(0);
 
   const load = async () => {
     if (!owner?.id) return;
@@ -33,6 +34,12 @@ export default function OwnerDashScreen({ navigation, route }) {
           .or(activePromoFilter());
         if (promoErr) throw promoErr;
         setActivePromos(count || 0);
+        const pending = await supabase
+          .from('reviews')
+          .select('id', { count: 'exact', head: true })
+          .eq('store_id', s.id)
+          .is('owner_reply', null);
+        setPendingReviews(pending.error ? 0 : pending.count || 0);
         const now = new Date();
         const startUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
         const startIso = startUtc.toISOString();
@@ -62,6 +69,7 @@ export default function OwnerDashScreen({ navigation, route }) {
         else setDirectionsToday(0);
       } else {
         setActivePromos(0);
+        setPendingReviews(0);
         setVisitsToday(0);
         setCallClicksToday(0);
         setDirectionsToday(0);
@@ -69,6 +77,7 @@ export default function OwnerDashScreen({ navigation, route }) {
     } catch {
       setStore(null);
       setActivePromos(0);
+      setPendingReviews(0);
       setVisitsToday(0);
       setCallClicksToday(0);
       setDirectionsToday(0);
@@ -170,6 +179,19 @@ export default function OwnerDashScreen({ navigation, route }) {
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('OwnerReviews', { owner })}>
+          <View style={[styles.menuIcon, { backgroundColor: colors.warningLight }]}>
+            <Ionicons name="star-outline" size={18} color={colors.warning} />
+          </View>
+          <Text style={styles.menuLabel}>Reseñas</Text>
+          {pendingReviews > 0 && (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>{pendingReviews} sin responder</Text>
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('OwnerStats', { owner })}>
           <View style={[styles.menuIcon, { backgroundColor: colors.brandMint }]}>
             <Ionicons name="bar-chart-outline" size={18} color={colors.brandAccent} />
@@ -230,6 +252,8 @@ export default function OwnerDashScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  pendingBadge: { backgroundColor: colors.secondaryLight, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginRight: 6 },
+  pendingBadgeText: { fontSize: 11, fontWeight: '700', color: colors.secondary },
   safe: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingBottom: spacing.xxl },
   header: { backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg },

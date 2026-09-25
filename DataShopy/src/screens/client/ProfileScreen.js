@@ -7,6 +7,7 @@ import { colors, radius, spacing, categories } from '../../constants/theme';
 
 const helpTint = categories.find((c) => c.id === 'tech') || { color: colors.primary, bg: colors.primaryLight };
 import { supabase } from '../../supabase/client';
+import { goToAuth, isGuestUser } from '../../utils/guest';
 import { confirmAndDeleteAccount } from '../../supabase/account';
 import { isRemoteUser } from '../../supabase/favorites';
 
@@ -50,6 +51,23 @@ export default function ProfileScreen({ navigation, user }) {
             </View>
           </View>
         </View>
+
+        {isGuestUser(user) && (
+          <View style={styles.guestCard}>
+            <Text style={styles.guestTitle}>Estás como invitado</Text>
+            <Text style={styles.guestDesc}>
+              Crea tu cuenta gratis para guardar favoritos, recibir avisos de sus promociones y dejar reseñas.
+            </Text>
+            <View style={styles.guestActions}>
+              <TouchableOpacity style={styles.guestBtnGhost} onPress={() => goToAuth(navigation, 'Login')}>
+                <Text style={styles.guestBtnGhostText}>Iniciar sesión</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.guestBtn} onPress={() => goToAuth(navigation, 'Register')}>
+                <Text style={styles.guestBtnText}>Crear cuenta</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <Text style={styles.sectionLabel}>Mi cuenta</Text>
         <TouchableOpacity
@@ -148,6 +166,27 @@ export default function ProfileScreen({ navigation, user }) {
 }
 
 const styles = StyleSheet.create({
+  guestCard: {
+    margin: spacing.lg,
+    marginBottom: 0,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryLight,
+  },
+  guestTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  guestDesc: { marginTop: 4, fontSize: 13, lineHeight: 19, color: colors.textSecondary },
+  guestActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  guestBtn: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: radius.md, backgroundColor: colors.primary },
+  guestBtnText: { color: colors.white, fontSize: 14, fontWeight: '600' },
+  guestBtnGhost: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 11,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  guestBtnGhostText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   safe: { flex: 1, backgroundColor: colors.bg },
   header: {
     height: 56,

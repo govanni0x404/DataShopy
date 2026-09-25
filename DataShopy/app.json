@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F0E0C"
+      "backgroundColor": "#7C4DEB"
     },
     "ios": {
       "supportsTablet": true,
@@ -25,7 +25,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F0E0C"
+        "backgroundColor": "#7C4DEB"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -65,8 +65,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
-          "color": "#7C3AED"
+          "icon": "./assets/notification-icon.png",
+          "color": "#8B5CF6"
         }
       ]
     ],
@@ -77,6 +77,7 @@
         "projectId": "2957bc33-d94a-4983-bfe8-2953a615268d"
       }
     },
-    "owner": "govanni"
+    "owner": "govanni",
+    "scheme": "datashopy"
   }
 }

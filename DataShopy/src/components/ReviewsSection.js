@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { goToAuth } from '../utils/guest';
 import { Stars, StarInput } from './StarRating';
 import { colors, radius, spacing } from '../constants/theme';
 import { getSupabaseStoreId, setStoreRatingLocal } from '../database/db';
@@ -31,6 +33,7 @@ const isPermissionError = (error) => error?.code === '42501' || /row-level secur
 // or delete your own review. Reviews live only in Supabase (no offline copy),
 // so it quietly renders nothing for stores that are not on the server.
 export default function ReviewsSection({ storeId, userId, onStatsChange }) {
+  const navigation = useNavigation();
   const supaStoreId = getSupabaseStoreId(storeId);
   const canReview = isRemoteUser(userId);
 
@@ -51,7 +54,7 @@ export default function ReviewsSection({ storeId, userId, onStatsChange }) {
       const [listRes, statsRes] = await Promise.all([
         supabase
           .from('reviews')
-          .select('id,user_id,rating,comment,author_name,created_at')
+          .select('id,user_id,rating,comment,author_name,created_at,owner_reply,owner_reply_at')
           .eq('store_id', supaStoreId)
           .order('created_at', { ascending: false })
           .limit(30),
@@ -69,7 +72,7 @@ export default function ReviewsSection({ storeId, userId, onStatsChange }) {
       if (canReview && !own) {
         const ownRes = await supabase
           .from('reviews')
-          .select('id,user_id,rating,comment,author_name,created_at')
+          .select('id,user_id,rating,comment,author_name,created_at,owner_reply,owner_reply_at')
           .eq('store_id', supaStoreId)
           .eq('user_id', userId)
           .maybeSingle();
@@ -170,7 +173,10 @@ export default function ReviewsSection({ storeId, userId, onStatsChange }) {
               <Text style={styles.writeBtnText}>{mine ? 'Editar mi reseña' : 'Escribir una reseña'}</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={styles.muted}>Inicia sesión con tu cuenta para dejar una reseña.</Text>
+            <TouchableOpacity style={styles.writeBtn} onPress={() => goToAuth(navigation, 'Login')} activeOpacity={0.85}>
+              <Ionicons name="log-in-outline" size={16} color={colors.white} />
+              <Text style={styles.writeBtnText}>Inicia sesión para dejar una reseña</Text>
+            </TouchableOpacity>
           )}
 
           {reviews.length === 0 ? (
@@ -191,6 +197,12 @@ export default function ReviewsSection({ storeId, userId, onStatsChange }) {
                   <Stars value={review.rating} size={13} />
                 </View>
                 {!!review.comment && <Text style={styles.comment}>{review.comment}</Text>}
+                {!!review.owner_reply && (
+                  <View style={styles.reply}>
+                    <Text style={styles.replyLabel}>Respuesta del local</Text>
+                    <Text style={styles.replyText}>{review.owner_reply}</Text>
+                  </View>
+                )}
               </View>
             ))
           )}
@@ -287,6 +299,9 @@ const styles = StyleSheet.create({
   author: { fontSize: 13, fontWeight: '600', color: colors.text },
   date: { fontSize: 11, color: colors.textTertiary, marginTop: 1 },
   comment: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.text },
+  reply: { marginTop: 10, padding: 10, borderRadius: radius.md, backgroundColor: colors.primaryLight },
+  replyLabel: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  replyText: { marginTop: 3, fontSize: 13, lineHeight: 19, color: colors.text },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   backdropContent: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg },
   sheet: {

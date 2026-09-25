@@ -17,6 +17,7 @@ import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
 import { importCatalogStores } from '../../database/db';
 import { supabase } from '../../supabase/client';
+import { isReadableSchedule } from '../../utils/openingHours';
 
 const placeKey = (address, city) => `${String(address || '').trim().toLowerCase()}|${String(city || '').trim().toLowerCase()}`;
 
@@ -187,6 +188,14 @@ export default function EditStoreScreen({ navigation, route }) {
     }
     if (!name.trim() || !category.trim()) {
       Alert.alert('Campos obligatorios', 'Ingresa el nombre y la categoría.');
+      return;
+    }
+
+    if (!isReadableSchedule(scheduleWeekday) || !isReadableSchedule(scheduleWeekend)) {
+      Alert.alert(
+        'No entendimos el horario',
+        'Escríbelo así: 09:00 - 18:00. Si algún día no abres, escribe Cerrado. Puedes indicar días: Lun–Sáb: 12:00–23:00.'
+      );
       return;
     }
 
@@ -425,23 +434,29 @@ export default function EditStoreScreen({ navigation, route }) {
             keyboardType="phone-pad"
           />
 
-          <Text style={styles.label}>Horario (Lun–Sáb)</Text>
+          <Text style={styles.label}>Horario entre semana</Text>
           <TextInput
             style={styles.input}
             value={scheduleWeekday}
             onChangeText={setScheduleWeekday}
-            placeholder="Lun–Sáb: 12:00–23:00"
+            placeholder="09:00 - 18:00"
             placeholderTextColor={colors.textTertiary}
+            autoCapitalize="none"
           />
 
-          <Text style={styles.label}>Horario (Dom / fin de semana)</Text>
+          <Text style={styles.label}>Horario fin de semana</Text>
           <TextInput
             style={styles.input}
             value={scheduleWeekend}
             onChangeText={setScheduleWeekend}
-            placeholder="Dom: 13:00–21:00"
+            placeholder="10:00 - 14:00 (o escribe Cerrado)"
             placeholderTextColor={colors.textTertiary}
+            autoCapitalize="none"
           />
+          <Text style={styles.hint}>
+            Usa el formato HH:MM - HH:MM. Así los clientes ven si estás abierto ahora. Si tus días son distintos, indícalos:
+            "Lun–Sáb: 12:00–23:00" y "Dom: 13:00–21:00".
+          </Text>
 
           <TouchableOpacity style={styles.btnPrimary} onPress={handleSave} disabled={saving}>
             <Text style={styles.btnText}>Guardar cambios</Text>

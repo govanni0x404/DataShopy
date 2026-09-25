@@ -1,20 +1,7 @@
 import React, { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert } from 'react-native';
+import AuthLayout, { AuthButton, AuthDivider, AuthInput, AuthLink, AuthLinks } from '../../components/AuthLayout';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import { colors, radius } from '../../constants/theme';
-import AppVersion from '../../components/AppVersion';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
 import { registerForPushNotificationsAsync } from '../../notifications/push';
@@ -105,193 +92,72 @@ export default function OwnerLoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 24 }} keyboardShouldPersistTaps="handled">
-          <View style={styles.form}>
-            <Text style={styles.formTitle}>{isRegister ? 'Activa tu negocio' : 'Entrar al panel de dueño'}</Text>
-            <Text style={styles.formSub}>
-              {isRegister
-                ? 'Crea tu acceso para reclamar o administrar tu local.'
-                : 'Gestiona tu perfil, promociones y actividad del negocio.'}
-            </Text>
-            {isRegister && (
-              <>
-                <Text style={styles.fieldLabel}>Nombre del responsable</Text>
-                <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Tu nombre"
-                  placeholderTextColor={colors.textTertiary}
-                />
-              </>
-            )}
+    <>
+      <AuthLayout
+        variant="owner"
+        title={isRegister ? 'Activa tu negocio' : 'Entrar al panel de dueño'}
+        subtitle={
+          isRegister
+            ? 'Crea tu acceso para reclamar o administrar tu local.'
+            : 'Gestiona tu perfil, promociones y actividad del negocio.'
+        }
+      >
+        {isRegister && (
+          <AuthInput icon="person-outline" label="Nombre del responsable" value={name} onChangeText={setName} placeholder="Tu nombre" />
+        )}
+        <AuthInput
+          icon="storefront-outline"
+          label="Correo del negocio"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="tienda@correo.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
+        <AuthInput
+          icon="lock-closed-outline"
+          label="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="••••••••"
+          password
+          showPassword={showPass}
+          onTogglePassword={() => setShowPass(!showPass)}
+        />
+        {isRegister && (
+          <AuthInput
+            icon="shield-checkmark-outline"
+            label="Confirmar contraseña"
+            value={confirm}
+            onChangeText={setConfirm}
+            placeholder="Repite tu contraseña"
+            password
+            showPassword={showPass}
+            onTogglePassword={() => setShowPass(!showPass)}
+          />
+        )}
 
-            <Text style={styles.fieldLabel}>Correo del negocio</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tienda@correo.com"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+        <AuthButton
+          label={loading ? 'Cargando...' : isRegister ? 'Crear cuenta y entrar' : 'Entrar al panel'}
+          onPress={isRegister ? handleRegister : handleLogin}
+          disabled={loading}
+        />
+        <AuthDivider />
+        <AuthButton
+          variant="secondary"
+          icon={isRegister ? 'log-in-outline' : 'add-circle-outline'}
+          label={isRegister ? 'Ya tengo cuenta' : 'Registrar mi tienda'}
+          onPress={() => setMode(isRegister ? 'login' : 'register')}
+          disabled={loading}
+        />
 
-            <Text style={styles.fieldLabel}>Contraseña</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor={colors.textTertiary}
-                secureTextEntry={!showPass}
-              />
-              <TouchableOpacity
-                style={[styles.eyeBtn, showPass && styles.eyeBtnActive]}
-                onPress={() => setShowPass(!showPass)}
-              >
-                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {isRegister && (
-              <>
-                <Text style={styles.fieldLabel}>Confirmar contraseña</Text>
-                <TextInput
-                  style={styles.input}
-                  value={confirm}
-                  onChangeText={setConfirm}
-                  placeholder="Repite tu contraseña"
-                  placeholderTextColor={colors.textTertiary}
-                  secureTextEntry={!showPass}
-                />
-              </>
-            )}
-
-            <TouchableOpacity
-              style={styles.btnPrimary}
-              onPress={isRegister ? handleRegister : handleLogin}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.btnPrimaryText}>
-                {loading ? 'Cargando...' : isRegister ? 'Crear cuenta y entrar' : 'Entrar al panel'}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.line} />
-              <Text style={styles.dividerText}>o</Text>
-              <View style={styles.line} />
-            </View>
-
-            <TouchableOpacity
-              style={styles.btnSecondary}
-              onPress={() => setMode(isRegister ? 'login' : 'register')}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.btnSecondaryText}>{isRegister ? 'Ya tengo cuenta' : 'Registrar mi tienda'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => navigation.replace('Login')} disabled={loading}>
-              <Text style={styles.linkText}>
-                ¿Eres cliente? <Text style={styles.linkAccent}>Ingresar aquí</Text>
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => navigation.navigate('AdminLogin')} disabled={loading}>
-              <Text style={styles.linkText}>
-                ¿Eres admin? <Text style={styles.linkAccentAlt}>Entrar aquí</Text>
-              </Text>
-            </TouchableOpacity>
-
-            {/*<View style={styles.demoBox}>
-              <Text style={styles.demoTitle}>Demo rápido</Text>
-              <Text style={styles.demoText}>Email: carlos@pizzeria.com</Text>
-              <Text style={styles.demoText}>Password: demo1234</Text>
-            </View>
-            */}
-          </View>
-        </ScrollView>
-        <AppVersion />
-      </KeyboardAvoidingView>
+        <AuthLinks>
+          <AuthLink prefix="¿Eres cliente?" action="Ingresar aquí" onPress={() => navigation.replace('Login')} disabled={loading} />
+          <AuthLink prefix="¿Eres admin?" action="Entrar aquí" alt onPress={() => navigation.navigate('AdminLogin')} disabled={loading} />
+        </AuthLinks>
+      </AuthLayout>
       <LoadingOverlay visible={loading} label={isRegister ? 'Creando tu cuenta...' : 'Ingresando...'} />
-    </SafeAreaView>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  form: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: 24,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  formTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
-  formSub: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
-  fieldLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
-  input: {
-    borderWidth: 0.5,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: 12,
-    fontSize: 14,
-    color: colors.text,
-    backgroundColor: colors.bgSecondary,
-  },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { padding: 10, borderRadius: radius.full },
-  eyeBtnActive: { backgroundColor: colors.primaryLight },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  btnPrimaryText: { color: colors.white, fontSize: 15, fontWeight: '600' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 },
-  line: { flex: 1, height: 0.5, backgroundColor: colors.border },
-  dividerText: { fontSize: 12, color: colors.textTertiary },
-  btnSecondary: {
-    borderWidth: 1.5,
-    borderColor: colors.secondary,
-    borderRadius: radius.md,
-    padding: 13,
-    alignItems: 'center',
-    marginBottom: 16,
-    backgroundColor: colors.secondaryLight,
-  },
-  btnSecondaryText: { color: colors.secondary, fontSize: 14, fontWeight: '600' },
-  linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary, marginBottom: 10 },
-  linkAccent: { color: colors.primary, fontWeight: '600' },
-  linkAccentAlt: { color: colors.secondary, fontWeight: '600' },
-  demoBox: {
-    marginTop: 12,
-    backgroundColor: colors.bgSecondary,
-    borderRadius: radius.md,
-    padding: 12,
-  },
-  demoTitle: { fontSize: 11, fontWeight: '500', color: colors.textSecondary, marginBottom: 4 },
-  demoText: { fontSize: 12, color: colors.textTertiary },
-});

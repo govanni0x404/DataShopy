@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert, Text } from 'react-native';
+import { colors } from '../../constants/theme';
+import AuthLayout, { AuthButton, AuthDivider, AuthInput, AuthLink, AuthLinks } from '../../components/AuthLayout';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import { colors, radius } from '../../constants/theme';
 import { supabase } from '../../supabase/client';
 import { upsertProfile } from '../../supabase/profile';
 
@@ -64,108 +60,63 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-              <Ionicons name="arrow-back" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <Text style={styles.title}>Crear cuenta</Text>
-            <View style={{ width: 40 }} />
-          </View>
+    <>
+      <AuthLayout
+        title="Crear cuenta"
+        subtitle="Únete a DataShopy y descubre los mejores locales de tu ciudad."
+        onBack={() => navigation.goBack()}
+      >
+        <AuthInput icon="person-outline" label="Nombre completo" value={name} onChangeText={setName} placeholder="Tu nombre" />
+        <AuthInput
+          icon="mail-outline"
+          label="Correo electrónico"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="tu@correo.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+        />
+        <AuthInput
+          icon="lock-closed-outline"
+          label="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Mínimo 6 caracteres"
+          password
+          showPassword={showPass}
+          onTogglePassword={() => setShowPass(!showPass)}
+        />
+        <AuthInput
+          icon="shield-checkmark-outline"
+          label="Confirmar contraseña"
+          value={confirm}
+          onChangeText={setConfirm}
+          placeholder="Repite tu contraseña"
+          password
+          showPassword={showPass}
+          onTogglePassword={() => setShowPass(!showPass)}
+        />
 
-          <View style={styles.form}>
-            <Text style={styles.subtitle}>Únete a DataShopy y descubre los mejores locales de tu ciudad.</Text>
+        <AuthButton label={loading ? 'Creando cuenta...' : 'Crear cuenta'} onPress={handleRegister} disabled={loading} />
 
-            <Text style={styles.label}>Nombre completo</Text>
-            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Tu nombre" placeholderTextColor={colors.textTertiary} />
+        <Text style={{ fontSize: 12, color: colors.textTertiary, textAlign: 'center', lineHeight: 18, marginTop: 14 }}>
+          Al crear tu cuenta aceptas los{' '}
+          <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => navigation.navigate('Legal', { doc: 'terms' })}>
+            Términos
+          </Text>{' '}
+          y la{' '}
+          <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}>
+            Política de privacidad
+          </Text>
+          .
+        </Text>
 
-            <Text style={styles.label}>Correo electrónico</Text>
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="tu@correo.com" placeholderTextColor={colors.textTertiary} keyboardType="email-address" autoCapitalize="none" />
-
-            <Text style={styles.label}>Contraseña</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Mínimo 6 caracteres"
-                placeholderTextColor={colors.textTertiary}
-                secureTextEntry={!showPass}
-              />
-              <TouchableOpacity
-                style={[styles.eyeBtn, showPass && styles.eyeBtnActive]}
-                onPress={() => setShowPass(!showPass)}
-              >
-                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.label}>Confirmar contraseña</Text>
-            <TextInput
-              style={styles.input}
-              value={confirm}
-              onChangeText={setConfirm}
-              placeholder="Repite tu contraseña"
-              placeholderTextColor={colors.textTertiary}
-              secureTextEntry={!showPass}
-            />
-
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister} disabled={loading} activeOpacity={0.85}>
-              <Text style={styles.btnText}>{loading ? 'Creando cuenta...' : 'Crear cuenta'}</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.legalNote}>
-              Al crear tu cuenta aceptas los{' '}
-              <Text style={styles.linkAccent} onPress={() => navigation.navigate('Legal', { doc: 'terms' })}>
-                Términos
-              </Text>{' '}
-              y la{' '}
-              <Text style={styles.linkAccent} onPress={() => navigation.navigate('Legal', { doc: 'privacy' })}>
-                Política de privacidad
-              </Text>
-              .
-            </Text>
-
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={styles.linkText}>¿Ya tienes cuenta? <Text style={styles.linkAccent}>Inicia sesión</Text></Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <AuthLinks>
+          <AuthLink prefix="¿Ya tienes cuenta?" action="Inicia sesión" onPress={() => navigation.goBack()} />
+        </AuthLinks>
+      </AuthLayout>
       <LoadingOverlay visible={loading} label="Creando tu cuenta..." />
-    </SafeAreaView>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  legalNote: { fontSize: 12, color: colors.textTertiary, textAlign: 'center', lineHeight: 18, marginTop: 14 },
-  safe: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 20 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.full, backgroundColor: colors.primaryLight },
-  title: { fontSize: 17, fontWeight: '600', color: colors.text },
-  form: { paddingHorizontal: 24 },
-  subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 24, lineHeight: 20 },
-  label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
-  input: { borderWidth: 0.5, borderColor: colors.border, borderRadius: 12, padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.bgSecondary },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { padding: 10, borderRadius: radius.full },
-  eyeBtnActive: { backgroundColor: colors.primaryLight },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  btnText: { color: colors.white, fontSize: 15, fontWeight: '600' },
-  linkText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary },
-  linkAccent: { color: colors.primary, fontWeight: '600' },
-});

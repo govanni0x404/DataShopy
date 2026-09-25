@@ -1,11 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import PromoCard from '../../components/PromoCard';
 import ReviewsSection from '../../components/ReviewsSection';
 import { Stars } from '../../components/StarRating';
 import { colors, radius, spacing, categories } from '../../constants/theme';
+import { promptGuestSignIn } from '../../utils/guest';
+import { distanceKm, formatDistance, travelEstimate } from '../../utils/geo';
+import { buildStoreShareUrl } from '../../utils/deepLinks';
+import { getOpenStatus } from '../../utils/openingHours';
+import { expiryLabel, pickFeaturedPromo } from '../../utils/promoHighlight';
+import { isRemoteUser } from '../../supabase/favorites';
 import { getPromosByStore, getStoreById, importCatalogStores, isFavoriteStore, replaceActivePromoSnapshot, toggleFavoriteStore, trackEvent } from '../../database/db';
 import { supabase } from '../../supabase/client';
 import { activePromoFilter } from '../../supabase/promos';
@@ -181,6 +188,58 @@ export default function StoreDetailScreen({ navigation, route }) {
 
   const mapImageUrl = useMemo(() => null, []);
 
+  // Open/closed badge, re-evaluated every minute.
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  const openStatus = useMemo(() => getOpenStatus(store, clock), [store?.schedule_weekday, store?.schedule_weekend, clock]);
+
+  // Distance/time estimate from the last known position (never asks for permission here).
+  const [myCoords, setMyCoords] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (perm.status !== 'granted') return;
+        const last = await Location.getLastKnownPositionAsync();
+        if (mounted && last?.coords) setMyCoords({ lat: last.coords.latitude, lng: last.coords.longitude });
+      } catch (e) {
+        console.warn('[StoreDetail] last known position failed', e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  const distance = useMemo(() => {
+    const lat = Number(store?.lat);
+    const lng = Number(store?.lng);
+    if (!myCoords || store?.lat == null || store?.lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const km = distanceKm(myCoords, { lat, lng });
+    return km == null ? null : { km, ...travelEstimate(km) };
+  }, [myCoords, store?.lat, store?.lng]);
+
+  const featuredPromo = useMemo(() => (Number(store?.claimed || 0) === 1 ? pickFeaturedPromo(promos, clock) : null), [promos, store?.claimed, clock]);
+
+  const handleShare = async () => {
+    const place = [store.address, store.city].filter(Boolean).join(', ');
+    const lines = [
+      `${store.emoji || '🏪'} ${store.name}${store.category ? ` · ${store.category}` : ''}`,
+      place ? `📍 ${place}` : null,
+      featuredPromo ? `🎁 ${featuredPromo.title}${expiryLabel(featuredPromo.expires_at, clock) ? ` (${expiryLabel(featuredPromo.expires_at, clock).toLowerCase()})` : ''}` : null,
+      'Descúbrelo en DataShopy',
+      buildStoreShareUrl(String(store.external_id || '').startsWith('sb:store/') ? store.external_id.replace('sb:store/', '') : null),
+    ].filter(Boolean);
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch (e) {
+      console.warn('[StoreDetail] share failed', e);
+    }
+  };
+
   const isClaimed = useMemo(() => Number(store?.claimed || 0) === 1, [store?.claimed]);
   const categoryStyle = useMemo(() => {
     const label = String(store?.category || '').trim().toLowerCase();
@@ -202,6 +261,13 @@ export default function StoreDetailScreen({ navigation, route }) {
   const refreshStoreFromCache = () => setStore(getStoreById(storeId));
 
   const handleToggleFavorite = () => {
+    if (!isRemoteUser(userId)) {
+      promptGuestSignIn(
+        navigation,
+        'Crea una cuenta gratis para guardar favoritos, recibir avisos de sus promociones y no perderlos si cambias de teléfono.'
+      );
+      return;
+    }
     const result = toggleFavoriteStore(userId, storeId);
     setFavorite(result.isFavorite);
     pushFavoriteChange(userId, storeId, result.isFavorite);
@@ -257,6 +323,12 @@ export default function StoreDetailScreen({ navigation, route }) {
             <View style={[styles.categoryBadge, { backgroundColor: categoryStyle.bg }]}>
               <Text style={[styles.categoryText, { color: categoryStyle.color }]}>{store.category}</Text>
             </View>
+            {!!openStatus && (
+              <View style={[styles.statusBadge, styles[`status_${openStatus.state}`]]}>
+                <View style={[styles.statusDot, styles[`statusDot_${openStatus.state}`]]} />
+                <Text style={[styles.statusText, styles[`statusText_${openStatus.state}`]]}>{openStatus.label}</Text>
+              </View>
+            )}
             {!!store.city && (
               <View style={styles.softBadge}>
                 <Ionicons name="navigate-outline" size={13} color={colors.brandInk} />
@@ -270,6 +342,21 @@ export default function StoreDetailScreen({ navigation, route }) {
               <Text style={styles.ratingText}>
                 {Number(store.rating_avg).toFixed(1)} · {store.rating_count} {Number(store.rating_count) === 1 ? 'reseña' : 'reseñas'}
               </Text>
+            </View>
+          )}
+          {!!featuredPromo && (
+            <View style={styles.featuredPromo}>
+              <View style={styles.featuredIcon}>
+                <Ionicons name="pricetag" size={18} color={colors.white} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.featuredTitle} numberOfLines={2}>
+                  {featuredPromo.title}
+                </Text>
+                {!!expiryLabel(featuredPromo.expires_at, clock) && (
+                  <Text style={styles.featuredExpiry}>{expiryLabel(featuredPromo.expires_at, clock)}</Text>
+                )}
+              </View>
             </View>
           )}
           {store.description ? <Text style={styles.desc}>{store.description}</Text> : null}
@@ -290,6 +377,9 @@ export default function StoreDetailScreen({ navigation, route }) {
                 Llamar
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.85} accessibilityLabel="Compartir local">
+              <Ionicons name="share-social-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
           </View>
 
           {!!scheduleText && (
@@ -302,6 +392,14 @@ export default function StoreDetailScreen({ navigation, route }) {
             <View style={styles.infoRow}>
               <Ionicons name="location-outline" size={18} color={categoryStyle.color} />
               <Text style={styles.infoText}>{store.address}</Text>
+            </View>
+          )}
+          {!!distance && (
+            <View style={styles.infoRow}>
+              <Ionicons name={distance.mode === 'walk' ? 'walk-outline' : 'car-outline'} size={18} color={categoryStyle.color} />
+              <Text style={styles.infoText}>
+                {formatDistance(distance.km).replace(/^a /, 'A ')} · {distance.minutes} min {distance.mode === 'walk' ? 'a pie' : 'en auto'}
+              </Text>
             </View>
           )}
           {!!store.phone && (
@@ -415,6 +513,39 @@ const styles = StyleSheet.create({
   },
   softBadgeText: { color: colors.brandInk, fontSize: 12, fontWeight: '500' },
   desc: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  status_open: { backgroundColor: colors.successLight },
+  status_closing: { backgroundColor: colors.warningLight },
+  status_closed: { backgroundColor: colors.dangerLight },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusDot_open: { backgroundColor: colors.success },
+  statusDot_closing: { backgroundColor: colors.warning },
+  statusDot_closed: { backgroundColor: colors.danger },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  statusText_open: { color: colors.success },
+  statusText_closing: { color: colors.warning },
+  statusText_closed: { color: colors.danger },
+  featuredPromo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: radius.lg,
+    backgroundColor: colors.secondaryLight,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+  },
+  featuredIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  featuredTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  featuredExpiry: { marginTop: 2, fontSize: 12, fontWeight: '600', color: colors.secondary },
+  shareBtn: {
+    width: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+  },
   actionRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   actionBtn: {
     flex: 1,
