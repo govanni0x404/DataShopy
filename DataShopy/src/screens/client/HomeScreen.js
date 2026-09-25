@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
+  Keyboard,
   StyleSheet,
   Text,
   TextInput,
@@ -10,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { getNewsCount, subscribeNewsCount } from '../../supabase/newsBadge';
+import { cityOfNearestStore, distanceKm } from '../../utils/geo';
 import CategoryFilter from '../../components/CategoryFilter';
 import StoreCard from '../../components/StoreCard';
 import { colors, spacing, radius, categories } from '../../constants/theme';
@@ -29,20 +32,6 @@ import { supabase } from '../../supabase/client';
 import { activePromoFilter } from '../../supabase/promos';
 import { syncFavorites } from '../../supabase/favorites';
 
-const toRad = (deg) => (deg * Math.PI) / 180;
-const distanceKm = (a, b) => {
-  if (!a || !b) return null;
-  const R = 6371;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const x =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
-  const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-  return R * c;
-};
 
 export default function HomeScreen({ navigation, route }) {
   const user = route.params?.user;
@@ -53,6 +42,9 @@ export default function HomeScreen({ navigation, route }) {
   const [promoTexts, setPromoTexts] = useState({});
   const [refreshing, setRefreshing] = useState(false);
   const mountedRef = useRef(true);
+  const listRef = useRef(null);
+  const [newsCount, setNewsCount] = useState(getNewsCount());
+  useEffect(() => subscribeNewsCount(setNewsCount), []);
   const [locationStatus, setLocationStatus] = useState('idle'); // idle | granted | denied
   const [userCoords, setUserCoords] = useState(null); // {lat,lng}
   const [userCity, setUserCity] = useState(null);
@@ -131,54 +123,73 @@ export default function HomeScreen({ navigation, route }) {
     loadStores();
   }, [selectedCategoryLabel, userCity, userCoords, user?.id]);
 
-  useEffect(() => {
-    let mounted = true;
-    let subscription = null;
-    const loadLocation = async () => {
-      try {
-        const perm = await Location.requestForegroundPermissionsAsync();
-        if (!mounted) return;
-        if (perm.status !== 'granted') {
-          setLocationStatus('denied');
-          return;
-        }
-        setLocationStatus('granted');
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        if (!mounted) return;
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserCoords(coords);
-        const geo = await Location.reverseGeocodeAsync({
-          latitude: coords.lat,
-          longitude: coords.lng,
-        });
-        if (!mounted) return;
-        const g = geo?.[0];
-        const c = g?.city || g?.subregion || g?.region || null;
-        setUserCity(c);
+  // Location: asks permission, reads the position, resolves the city and keeps following the user.
+  // Callable again (e.g. when Home regains focus after the user allowed location in Settings).
+  const locationSubRef = useRef(null);
+  const locationBusyRef = useRef(false);
+  const startLocation = async () => {
+    if (locationBusyRef.current) return;
+    locationBusyRef.current = true;
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (!mountedRef.current) return;
+      if (perm.status !== 'granted') {
+        setLocationStatus('denied');
+        return;
+      }
+      setLocationStatus('granted');
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (!mountedRef.current) return;
+      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setUserCoords(coords);
 
-        subscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.Balanced,
-            distanceInterval: 35,
-          },
+      // The system geocoder can fail (no Google services, offline): that must not
+      // cancel location. Fall back to the city of the nearest catalog store.
+      let city = null;
+      try {
+        const geo = await Location.reverseGeocodeAsync({ latitude: coords.lat, longitude: coords.lng });
+        const g = geo?.[0];
+        city = g?.city || g?.subregion || g?.region || null;
+      } catch (e) {
+        console.warn('[Home] reverseGeocode failed, using nearest store city', e);
+      }
+      if (!city) city = cityOfNearestStore(getAllStores(null), coords);
+      if (!mountedRef.current) return;
+      setUserCity(city);
+
+      if (!locationSubRef.current) {
+        locationSubRef.current = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 35 },
           (nextPos) => {
-            if (!mounted) return;
-            const next = { lat: nextPos.coords.latitude, lng: nextPos.coords.longitude };
-            setUserCoords(next);
+            if (!mountedRef.current) return;
+            setUserCoords({ lat: nextPos.coords.latitude, lng: nextPos.coords.longitude });
           }
         );
-      } catch {
-        if (mounted) setLocationStatus('denied');
       }
-    };
-    loadLocation();
+    } catch (e) {
+      console.warn('[Home] location failed', e);
+      if (mountedRef.current) setLocationStatus('denied');
+    } finally {
+      locationBusyRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    startLocation();
     return () => {
-      mounted = false;
-      if (subscription?.remove) subscription.remove();
+      locationSubRef.current?.remove?.();
+      locationSubRef.current = null;
     };
   }, []);
+
+  // Coming back to Home without a position (permission was denied, or the user just
+  // switched to "ubicación automática"): try again.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (!userCoords) startLocation();
+    });
+    return unsubscribe;
+  }, [navigation, userCoords]);
 
   useEffect(() => {
     let mounted = true;
@@ -367,6 +378,19 @@ export default function HomeScreen({ navigation, route }) {
     syncCatalog();
   }, [effectiveCity]);
 
+  // Tapping the "Inicio" tab resets Home: clears the search and category and scrolls to the top
+  // (the stack itself already pops back from a store's detail).
+  useEffect(() => {
+    const tabs = navigation.getParent?.();
+    if (!tabs?.addListener) return undefined;
+    return tabs.addListener('tabPress', () => {
+      Keyboard.dismiss();
+      setQuery('');
+      setSelectedCategoryId('all');
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+    });
+  }, [navigation]);
+
   // The catalog sync is throttled; favorites are cheap, so also reconcile them
   // every time the signed-in user changes/opens Home.
   useEffect(() => {
@@ -382,28 +406,32 @@ export default function HomeScreen({ navigation, route }) {
     }
   };
 
+  // "Notifications" is a tab: navigate through the tab navigator (the direct parent of
+  // this stack). Going one level higher (the root stack) does not know that route.
   const goToNotifications = () => {
-    const maybeTabNav = navigation.getParent?.()?.getParent?.() || navigation.getParent?.();
-    if (maybeTabNav?.navigate) {
-      maybeTabNav.navigate('Notifications');
+    const tabs = navigation.getParent?.();
+    if (tabs?.navigate) {
+      tabs.navigate('Notifications', { screen: 'NotificationsMain', params: { initialTab: 'news', user } });
       return;
     }
     navigation.navigate('Notifications');
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerEyebrow}>Descubrir</Text>
           <Text style={styles.headerTitle}>DataShopy</Text>
         </View>
         <TouchableOpacity style={styles.headerIcon} onPress={goToNotifications}>
-          <Ionicons name="notifications-outline" size={19} color={colors.primary} />
+          <Ionicons name={newsCount > 0 ? 'notifications' : 'notifications-outline'} size={19} color={colors.primary} />
+          {newsCount > 0 && <View style={styles.bellDot} />}
         </TouchableOpacity>
       </View>
 
       <FlatList
+        ref={listRef}
         data={filteredStores}
         keyExtractor={(item) => String(item.id)}
         refreshing={refreshing}
@@ -564,6 +592,17 @@ const styles = StyleSheet.create({
   },
   headerEyebrow: { fontSize: 11, color: colors.textTertiary, marginBottom: 1 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.brandInk },
+  bellDot: {
+    position: 'absolute',
+    top: 7,
+    right: 8,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: colors.danger,
+    borderWidth: 1.5,
+    borderColor: colors.bg,
+  },
   headerIcon: {
     width: 36,
     height: 36,

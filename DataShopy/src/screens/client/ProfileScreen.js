@@ -27,7 +27,7 @@ export default function ProfileScreen({ navigation, user }) {
   const [signingOut, setSigningOut] = useState(false);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Mi perfil</Text>
       </View>
@@ -100,7 +100,7 @@ export default function ProfileScreen({ navigation, user }) {
           <View style={[styles.menuIcon, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
           </View>
-          <Text style={styles.menuLabel}>Privacidad y términos</Text>
+          <Text style={styles.menuLabel}>Política de privacidad</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Legal', { doc: 'terms' })}>

@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius, spacing } from '../../constants/theme';
+import AppVersion from '../../components/AppVersion';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
 import { registerForPushNotificationsAsync } from '../../notifications/push';
@@ -134,6 +135,7 @@ export default function LoginScreen({ navigation }) {
             */}
           </View>
         </ScrollView>
+        <AppVersion />
       </KeyboardAvoidingView>
       <LoadingOverlay visible={loading} label="Ingresando..." />
     </SafeAreaView>
@@ -142,10 +144,9 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flexGrow: 1, paddingBottom: 28 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 24 },
   form: {
     marginHorizontal: 20,
-    marginTop: 24,
     paddingHorizontal: 18,
     paddingVertical: 18,
     borderRadius: 24,

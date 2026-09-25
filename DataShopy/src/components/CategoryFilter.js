@@ -1,11 +1,19 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { colors, radius, spacing } from '../constants/theme';
 import { categories } from '../constants/theme';
 
 export default function CategoryFilter({ selected, onSelect }) {
+  const scrollRef = useRef(null);
+
+  // Back to "Todos" (e.g. tapping the Inicio tab): bring the chip strip back to its start too.
+  useEffect(() => {
+    if (selected === 'all') scrollRef.current?.scrollTo({ x: 0, animated: true });
+  }, [selected]);
+
   return (
     <ScrollView
+      ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}

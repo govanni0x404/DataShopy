@@ -1,17 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { colors, radius, spacing } from '../../constants/theme';
 import {
   countActivePromos,
   getClientPreferences,
   getFavoriteStores,
   getStoreByExternalId,
+  getSupabaseStoreId,
   importCatalogStores,
 } from '../../database/db';
 import { supabase } from '../../supabase/client';
 import { activePromoFilter } from '../../supabase/promos';
+import { markNewsSeen } from '../../supabase/newsBadge';
+import { formatDistance } from '../../utils/geo';
+import { rankNewsFeed } from '../../utils/newsFeed';
 
 const ACCENT_PAIRS = [
   { bg: colors.primaryLight, fg: colors.primary },
@@ -35,10 +40,13 @@ const relativeTime = (iso) => {
 export default function NotificationsScreen({ navigation, route }) {
   const user = route.params?.user;
   const [tab, setTab] = useState(route.params?.initialTab || 'news'); // news | fav
-  const [news, setNews] = useState([]);
+  const [rawNews, setRawNews] = useState([]);
+  const [coords, setCoords] = useState(null); // {lat,lng} while location is allowed
   const [favorites, setFavorites] = useState([]);
   const [prefs, setPrefs] = useState(() => getClientPreferences(user?.id));
 
+  // Favorites first, then nearest stores; re-sorted in memory whenever the user moves.
+  const news = useMemo(() => rankNewsFeed(rawNews, coords), [rawNews, coords]);
   const items = useMemo(() => (tab === 'fav' ? favorites : news), [tab, favorites, news]);
 
   const loadFavorites = () => {
@@ -59,21 +67,38 @@ export default function NotificationsScreen({ navigation, route }) {
     const nextPrefs = getClientPreferences(user?.id);
     setPrefs(nextPrefs);
     if (!nextPrefs.notifications_enabled || !nextPrefs.promo_alerts) {
-      setNews([]);
+      setRawNews([]);
       return;
     }
 
     try {
-      const { data: promos, error } = await supabase
-        .from('promotions')
-        .select('id,title,description,tag,expires_at,created_at,store_id')
-        .eq('is_active', true)
-        .or(activePromoFilter())
-        .order('created_at', { ascending: false })
-        .limit(24);
-      if (error) throw error;
+      // Newest active promos overall + ALL active promos of the user's favorites
+      // (so a favorite's promo shows up even if it is old or in another city).
+      const favoriteSupaIds = getFavoriteStores(user?.id)
+        .map((store) => getSupabaseStoreId(store.id))
+        .filter(Boolean);
+      const favoriteSet = new Set(favoriteSupaIds);
 
-      const storeIds = [...new Set((promos || []).map((promo) => promo.store_id).filter(Boolean))];
+      const baseQuery = () =>
+        supabase
+          .from('promotions')
+          .select('id,title,description,tag,expires_at,created_at,store_id')
+          .eq('is_active', true)
+          .or(activePromoFilter());
+      const [recentRes, favoriteRes] = await Promise.all([
+        baseQuery().order('created_at', { ascending: false }).limit(60),
+        favoriteSupaIds.length
+          ? baseQuery().in('store_id', favoriteSupaIds).order('created_at', { ascending: false }).limit(60)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (recentRes.error) throw recentRes.error;
+      if (favoriteRes.error) throw favoriteRes.error;
+
+      const promoById = new Map();
+      for (const promo of [...(recentRes.data || []), ...(favoriteRes.data || [])]) promoById.set(promo.id, promo);
+      const promos = [...promoById.values()];
+
+      const storeIds = [...new Set(promos.map((promo) => promo.store_id).filter(Boolean))];
       let storeMap = new Map();
       if (storeIds.length) {
         const { data: storesData, error: storeErr } = await supabase
@@ -91,11 +116,13 @@ export default function NotificationsScreen({ navigation, route }) {
       }
 
       const preferredCity = (nextPrefs.preferred_city || '').trim().toLowerCase();
-      const nextNews = (promos || [])
+      const nextNews = promos
         .map((promo) => {
           const store = storeMap.get(promo.store_id);
           if (!store) return null;
-          if (nextPrefs.nearby_alerts && preferredCity && String(store.city || '').trim().toLowerCase() !== preferredCity) {
+          const isFavorite = favoriteSet.has(store.id);
+          // The city filter never hides a favorite.
+          if (!isFavorite && nextPrefs.nearby_alerts && preferredCity && String(store.city || '').trim().toLowerCase() !== preferredCity) {
             return null;
           }
           const localStore = getStoreByExternalId(`sb:store/${store.id}`);
@@ -105,15 +132,43 @@ export default function NotificationsScreen({ navigation, route }) {
             title: promo.title,
             desc: `${store.name}${promo.description ? ` · ${promo.description}` : ''}`,
             time: relativeTime(promo.created_at),
+            createdAt: promo.created_at,
             unread: true,
             emoji: store.emoji || '🏪',
             meta: promo.tag || (promo.expires_at ? `Vence: ${promo.expires_at}` : store.city || ''),
+            isFavorite,
+            lat: store.lat,
+            lng: store.lng,
           };
         })
         .filter(Boolean);
-      setNews(nextNews);
-    } catch {
-      setNews([]);
+      setRawNews(nextNews);
+    } catch (e) {
+      console.warn('[Notifications] loadNews failed', e);
+      setRawNews([]);
+    }
+  };
+
+  // While the screen is focused, follow the user's position (if they allowed
+  // location) so the ordering keeps changing as they move around.
+  const watchRef = useRef(null);
+  const stopWatching = () => {
+    watchRef.current?.remove?.();
+    watchRef.current = null;
+  };
+  const startWatching = async () => {
+    try {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status !== 'granted') return;
+      const last = await Location.getLastKnownPositionAsync();
+      if (last?.coords) setCoords({ lat: last.coords.latitude, lng: last.coords.longitude });
+      stopWatching();
+      watchRef.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 300, timeInterval: 30000 },
+        (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+      );
+    } catch (e) {
+      console.warn('[Notifications] location watch failed', e);
     }
   };
 
@@ -122,20 +177,31 @@ export default function NotificationsScreen({ navigation, route }) {
   }, [route.params?.initialTab]);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+    const unsubscribeFocus = navigation.addListener('focus', () => {
       loadFavorites();
       loadNews();
+      startWatching();
+      markNewsSeen(user?.id);
     });
-    return unsubscribe;
+    const unsubscribeBlur = navigation.addListener('blur', stopWatching);
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+      stopWatching();
+    };
   }, [navigation, user?.id]);
 
   useEffect(() => {
     loadFavorites();
     loadNews();
+    if (navigation.isFocused()) {
+      startWatching();
+      markNewsSeen(user?.id);
+    }
   }, [user?.id]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Alertas</Text>
       </View>
@@ -186,6 +252,13 @@ export default function NotificationsScreen({ navigation, route }) {
                   <Text style={styles.title}>{n.title}</Text>
                   <Text style={styles.desc}>{n.desc}</Text>
                   <Text style={styles.time}>{n.meta ? `${n.time} · ${n.meta}` : n.time}</Text>
+                  {(n.isFavorite || n.distanceKm != null) && (
+                    <Text style={[styles.favoriteMeta, { color: n.isFavorite ? colors.secondary : colors.textSecondary }]}>
+                      {[n.isFavorite ? '♥ Favorito' : null, n.distanceKm != null ? formatDistance(n.distanceKm) : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  )}
                   {typeof n.promoCount === 'number' && (
                     <Text style={[styles.favoriteMeta, { color: accent.fg }]}>
                       {n.promoCount > 0 ? `${n.promoCount} promos activas` : 'Sin promociones activas'}

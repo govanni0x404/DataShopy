@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { colors, radius } from '../../constants/theme';
+import AppVersion from '../../components/AppVersion';
 import { supabase } from '../../supabase/client';
 import { getProfile, upsertProfile } from '../../supabase/profile';
 import { registerForPushNotificationsAsync } from '../../notifications/push';
@@ -106,7 +107,7 @@ export default function OwnerLoginScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 24 }} keyboardShouldPersistTaps="handled">
           <View style={styles.form}>
             <Text style={styles.formTitle}>{isRegister ? 'Activa tu negocio' : 'Entrar al panel de dueño'}</Text>
             <Text style={styles.formSub}>
@@ -216,6 +217,7 @@ export default function OwnerLoginScreen({ navigation }) {
             */}
           </View>
         </ScrollView>
+        <AppVersion />
       </KeyboardAvoidingView>
       <LoadingOverlay visible={loading} label={isRegister ? 'Creando tu cuenta...' : 'Ingresando...'} />
     </SafeAreaView>

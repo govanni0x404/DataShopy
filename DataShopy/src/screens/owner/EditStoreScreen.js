@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -18,6 +18,8 @@ import { colors, radius, spacing } from '../../constants/theme';
 import { importCatalogStores } from '../../database/db';
 import { supabase } from '../../supabase/client';
 
+const placeKey = (address, city) => `${String(address || '').trim().toLowerCase()}|${String(city || '').trim().toLowerCase()}`;
+
 export default function EditStoreScreen({ navigation, route }) {
   const owner = route.params?.owner;
   const [storeId, setStoreId] = useState(null);
@@ -36,6 +38,7 @@ export default function EditStoreScreen({ navigation, route }) {
   const [country, setCountry] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
+  const originalPlaceRef = useRef('');
   const [keywords, setKeywords] = useState('');
   const [locLoading, setLocLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -71,6 +74,7 @@ export default function EditStoreScreen({ navigation, route }) {
         setLat(existing.lat != null ? String(existing.lat) : '');
         setLng(existing.lng != null ? String(existing.lng) : '');
         setKeywords(existing.keywords || '');
+        originalPlaceRef.current = placeKey(existing.address, existing.city);
       } catch {
       } finally {
         if (mounted) setLoaded(true);
@@ -205,6 +209,13 @@ export default function EditStoreScreen({ navigation, route }) {
 
     if (data.lat != null && Number.isNaN(data.lat)) data.lat = null;
     if (data.lng != null && Number.isNaN(data.lng)) data.lng = null;
+
+    // Coordinates can't be edited anymore (the location is the written address), so if the
+    // address or city changed the old coordinates would point to the wrong place: clear them.
+    if (originalPlaceRef.current && placeKey(data.address, data.city) !== originalPlaceRef.current) {
+      data.lat = null;
+      data.lng = null;
+    }
 
     setSaving(true);
     try {
@@ -372,6 +383,7 @@ export default function EditStoreScreen({ navigation, route }) {
             autoCapitalize="characters"
           />
 
+          {/* Ubicación exacta (latitud/longitud y "Usar mi ubicación actual") desactivada: la ubicación es solo la dirección escrita.
           <View style={styles.coordRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Latitud</Text>
@@ -401,6 +413,7 @@ export default function EditStoreScreen({ navigation, route }) {
             <Ionicons name="locate-outline" size={16} color={colors.secondary} />
             <Text style={styles.btnSecondaryText}>{locLoading ? 'Obteniendo ubicación...' : 'Usar mi ubicación actual'}</Text>
           </TouchableOpacity>
+          */}
 
           <Text style={styles.label}>Teléfono</Text>
           <TextInput

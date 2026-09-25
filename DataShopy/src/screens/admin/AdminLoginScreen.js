@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
-  body: { padding: spacing.lg },
+  body: { flex: 1, justifyContent: 'center', padding: spacing.lg, paddingBottom: spacing.xxl },
   iconBadge: {
     width: 52,
     height: 52,

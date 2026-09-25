@@ -142,88 +142,41 @@ export default function StoreDetailScreen({ navigation, route }) {
     Linking.openURL(url);
   };
 
+  // Directions use the written address only (no exact coordinates): "address, city, country",
+  // falling back to the store name. Opened from the "Cómo llegar" button.
   const openDirections = async () => {
     if (!store) return;
-    let lat = typeof store.lat === 'number' ? store.lat : store.lat ? Number(store.lat) : null;
-    let lng = typeof store.lng === 'number' ? store.lng : store.lng ? Number(store.lng) : null;
-    let hasCoords = lat != null && !Number.isNaN(lat) && lng != null && !Number.isNaN(lng);
-    let destinationLabel =
+    const destination =
       [store.address, store.city, store.country].filter(Boolean).join(', ') || (store.name ? String(store.name).trim() : '');
-    const ext = String(store?.external_id || '');
-    const isSb = ext.startsWith('sb:store/');
-    const supaStoreId = isSb ? Number(ext.replace('sb:store/', '')) : null;
-    if (!hasCoords && isSb && supaStoreId && !Number.isNaN(supaStoreId)) {
-      try {
-        const { data, error } = await supabase
-          .from('stores')
-          .select('lat,lng,address,city,country,name')
-          .eq('id', supaStoreId)
-          .maybeSingle();
-        if (error) throw error;
-        const nextLat = typeof data?.lat === 'number' ? data.lat : data?.lat ? Number(data.lat) : null;
-        const nextLng = typeof data?.lng === 'number' ? data.lng : data?.lng ? Number(data.lng) : null;
-        const ok = nextLat != null && !Number.isNaN(nextLat) && nextLng != null && !Number.isNaN(nextLng);
-        if (ok) {
-          lat = nextLat;
-          lng = nextLng;
-          hasCoords = true;
-        }
-        destinationLabel =
-          [data?.address, data?.city, data?.country].filter(Boolean).join(', ') || (data?.name ? String(data.name).trim() : destinationLabel);
-      } catch (e) {
-        console.warn('[StoreDetail] refreshing coords for directions failed', e);
-      }
+    if (!destination) {
+      Alert.alert('Destino no disponible', 'Este local no tiene una dirección guardada.');
+      return;
     }
-    const destinationByCoords = hasCoords ? `${lat},${lng}` : '';
-    const destinationByAddress = destinationLabel;
     try {
       trackEvent('directions_click', {
         storeId,
         userId,
-        metadata: {
-          address: store.address || null,
-          city: store.city || null,
-          country: store.country || null,
-          lat: hasCoords ? lat : null,
-          lng: hasCoords ? lng : null,
-        },
+        metadata: { address: store.address || null, city: store.city || null, country: store.country || null },
       });
     } catch (e) {
       console.warn('[StoreDetail] trackEvent directions_click failed', e);
     }
 
-    const openGoogleMaps = async ({ destination, isCoords }) => {
-      const webDestination = isCoords ? destination : encodeURIComponent(destination);
-      const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${webDestination}&travelmode=driving`;
-      const googleMapsAppUrl =
-        Platform.OS === 'ios'
-          ? `comgooglemaps://?daddr=${isCoords ? destination : encodeURIComponent(destination)}&directionsmode=driving`
-          : isCoords
-            ? `google.navigation:q=loc:${destination}&mode=d`
-            : `google.navigation:q=${encodeURIComponent(destination)}&mode=d`;
-      try {
-        const can = await Linking.canOpenURL(googleMapsAppUrl);
-        if (can) {
-          await Linking.openURL(googleMapsAppUrl);
-          return;
-        }
-      } catch (e) {
-        console.warn('[StoreDetail] opening Maps app failed, falling back to web', e);
+    const encoded = encodeURIComponent(destination);
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${encoded}&travelmode=driving`;
+    const googleMapsAppUrl =
+      Platform.OS === 'ios'
+        ? `comgooglemaps://?daddr=${encoded}&directionsmode=driving`
+        : `google.navigation:q=${encoded}&mode=d`;
+    try {
+      if (await Linking.canOpenURL(googleMapsAppUrl)) {
+        await Linking.openURL(googleMapsAppUrl);
+        return;
       }
-      Linking.openURL(fallbackUrl);
-    };
-
-    if (hasCoords) {
-      openGoogleMaps({ destination: destinationByCoords, isCoords: true });
-      return;
+    } catch (e) {
+      console.warn('[StoreDetail] opening Maps app failed, falling back to web', e);
     }
-
-    if (destinationByAddress) {
-      openGoogleMaps({ destination: destinationByAddress, isCoords: false });
-      return;
-    }
-
-    Alert.alert('Destino no disponible', 'Este local no tiene dirección ni coordenadas guardadas.');
+    Linking.openURL(fallbackUrl);
   };
 
   const mapImageUrl = useMemo(() => null, []);
@@ -256,7 +209,7 @@ export default function StoreDetailScreen({ navigation, route }) {
 
   if (!store) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
@@ -272,7 +225,7 @@ export default function StoreDetailScreen({ navigation, route }) {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
@@ -369,6 +322,7 @@ export default function StoreDetailScreen({ navigation, route }) {
             </>
           )}
 
+          {/* Tarjeta "Ver en Google Maps" desactivada: el mapa se abre solo desde el botón "Cómo llegar".
           <TouchableOpacity style={styles.mapCard} onPress={openDirections} activeOpacity={0.85}>
             {mapImageUrl ? (
               <>
@@ -385,6 +339,7 @@ export default function StoreDetailScreen({ navigation, route }) {
               </>
             )}
           </TouchableOpacity>
+          */}
 
           <Text style={styles.sectionTitle}>Promociones de hoy</Text>
           {!isClaimed ? (

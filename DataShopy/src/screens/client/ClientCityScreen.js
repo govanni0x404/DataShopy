@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import LoadingOverlay from '../../components/LoadingOverlay';
+import { cityOfNearestStore } from '../../utils/geo';
 import { colors, radius, spacing } from '../../constants/theme';
 import { getAllStores, getClientPreferences, saveClientPreferences } from '../../database/db';
 
@@ -11,6 +14,7 @@ export default function ClientCityScreen({ navigation, route }) {
   const user = route.params?.user;
   const prefs = getClientPreferences(user?.id);
   const [city, setCity] = useState(prefs.preferred_city || '');
+  const [locating, setLocating] = useState(false);
 
   const suggestions = useMemo(() => {
     const all = getAllStores(null)
@@ -24,14 +28,54 @@ export default function ClientCityScreen({ navigation, route }) {
     navigation.goBack();
   };
 
-  const clearPreference = () => {
-    setCity('');
-    saveClientPreferences(user?.id, { preferred_city: '' });
-    navigation.goBack();
+  const enableAutomaticLocation = async () => {
+    setLocating(true);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert(
+          'Ubicación desactivada',
+          'Para usar la ubicación automática, permite el acceso a la ubicación de DataShopy en los ajustes del teléfono.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Abrir ajustes', onPress: () => Linking.openSettings().catch(() => {}) },
+          ]
+        );
+        return;
+      }
+
+      // Only drop the saved city once we know automatic location can work.
+      setCity('');
+      saveClientPreferences(user?.id, { preferred_city: '' });
+
+      let detected = null;
+      try {
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        try {
+          const geo = await Location.reverseGeocodeAsync({ latitude: coords.lat, longitude: coords.lng });
+          const g = geo?.[0];
+          detected = g?.city || g?.subregion || g?.region || null;
+        } catch (e) {
+          console.warn('[ClientCity] reverseGeocode failed', e);
+        }
+        if (!detected) detected = cityOfNearestStore(getAllStores(null), coords);
+      } catch (e) {
+        console.warn('[ClientCity] could not read position', e);
+      }
+
+      Alert.alert(
+        'Ubicación automática activada',
+        detected ? `Te mostraremos los locales cerca de ti (${detected}).` : 'Te mostraremos los locales cerca de tu ubicación actual.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } finally {
+      setLocating(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
@@ -78,11 +122,12 @@ export default function ClientCityScreen({ navigation, route }) {
           <TouchableOpacity style={styles.primaryBtn} onPress={handleSave}>
             <Text style={styles.primaryBtnText}>Guardar ciudad</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={clearPreference}>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={enableAutomaticLocation} disabled={locating}>
             <Text style={styles.secondaryBtnText}>Usar ubicación automática</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <LoadingOverlay visible={locating} label="Buscando tu ubicación..." />
     </SafeAreaView>
   );
 }

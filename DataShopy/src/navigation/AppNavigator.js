@@ -10,6 +10,7 @@ import { colors } from '../constants/theme';
 import { supabase } from '../supabase/client';
 import { getProfile } from '../supabase/profile';
 import { registerForPushNotificationsAsync } from '../notifications/push';
+import { getNewsCount, refreshNewsCount, subscribeNewsCount } from '../supabase/newsBadge';
 
 // Auth
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -44,6 +45,23 @@ const Tab = createBottomTabNavigator();
 function ClientTabs({ route }) {
   const user = route.params?.user;
   const insets = useSafeAreaInsets();
+
+  // Badge on "Alertas": new promos from favorites since the user last opened it.
+  const [newsCount, setNewsCount] = useState(getNewsCount());
+  useEffect(() => {
+    const unsubscribe = subscribeNewsCount(setNewsCount);
+    refreshNewsCount(user?.id);
+    const timer = setInterval(() => refreshNewsCount(user?.id), 60000);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshNewsCount(user?.id);
+    });
+    return () => {
+      unsubscribe();
+      clearInterval(timer);
+      appState.remove();
+    };
+  }, [user?.id]);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -68,7 +86,7 @@ function ClientTabs({ route }) {
       })}
     >
       <Tab.Screen name="Home" component={HomeStackScreen} options={{ tabBarLabel: 'Inicio' }} initialParams={{ user }} />
-      <Tab.Screen name="Notifications" component={NotificationsStackScreen} options={{ tabBarLabel: 'Alertas' }} initialParams={{ user }} />
+      <Tab.Screen name="Notifications" component={NotificationsStackScreen} options={{ tabBarLabel: 'Alertas', tabBarBadge: newsCount > 0 ? newsCount : undefined }} initialParams={{ user }} />
       <Tab.Screen name="Profile" component={ProfileStackScreen} options={{ tabBarLabel: 'Perfil' }} initialParams={{ user }} />
     </Tab.Navigator>
   );

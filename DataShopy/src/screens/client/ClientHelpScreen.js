@@ -20,7 +20,7 @@ function FaqItem({ icon, iconBg, iconColor, title, desc }) {
 
 export default function ClientHelpScreen({ navigation }) {
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
