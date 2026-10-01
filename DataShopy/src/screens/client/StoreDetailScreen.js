@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import ProductCard from '../../components/ProductCard';
 import PromoCard from '../../components/PromoCard';
 import ReviewsSection from '../../components/ReviewsSection';
 import { Stars } from '../../components/StarRating';
@@ -16,6 +17,7 @@ import { isRemoteUser } from '../../supabase/favorites';
 import { getPromosByStore, getStoreById, importCatalogStores, isFavoriteStore, replaceActivePromoSnapshot, toggleFavoriteStore, trackEvent } from '../../database/db';
 import { supabase } from '../../supabase/client';
 import { activePromoFilter } from '../../supabase/promos';
+import { discountPercent, fetchStoreProducts, formatPrice } from '../../supabase/products';
 import { pushFavoriteChange } from '../../supabase/favorites';
 
 export default function StoreDetailScreen({ navigation, route }) {
@@ -24,6 +26,8 @@ export default function StoreDetailScreen({ navigation, route }) {
   const [store, setStore] = useState(null);
   const [promos, setPromos] = useState([]);
   const [favorite, setFavorite] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
     if (!storeId) return;
@@ -116,6 +120,22 @@ export default function StoreDetailScreen({ navigation, route }) {
       }
     };
     syncPromos();
+    return () => {
+      mounted = false;
+    };
+  }, [storeId]);
+
+  // Products are read straight from Supabase (no local cache): only claimed
+  // stores synced from Supabase can have them.
+  useEffect(() => {
+    let mounted = true;
+    const s = getStoreById(storeId);
+    const ext = String(s?.external_id || '');
+    const supaStoreId = Number(ext.replace('sb:store/', ''));
+    if (Number(s?.claimed || 0) !== 1 || !ext.startsWith('sb:store/') || !supaStoreId) return;
+    fetchStoreProducts(supaStoreId)
+      .then((rows) => mounted && setProducts(rows))
+      .catch((e) => console.warn('[StoreDetail] fetch products failed', e));
     return () => {
       mounted = false;
     };
@@ -448,9 +468,62 @@ export default function StoreDetailScreen({ navigation, route }) {
             promos.map((p) => <PromoCard key={String(p.id)} promo={p} />)
           )}
 
+          {!!products.length && (
+            <>
+              <Text style={styles.sectionTitle}>Productos</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productsRow}>
+                {products.map((p) => (
+                  <ProductCard key={String(p.id)} product={p} onPress={() => setSelectedProduct(p)} />
+                ))}
+              </ScrollView>
+            </>
+          )}
+
           <ReviewsSection storeId={storeId} userId={userId} onStatsChange={refreshStoreFromCache} />
         </View>
       </ScrollView>
+
+      <Modal visible={!!selectedProduct} transparent animationType="fade" onRequestClose={() => setSelectedProduct(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedProduct(null)}>
+          {!!selectedProduct && (
+            <Pressable style={styles.modalCard}>
+              {!!selectedProduct.image_url && (
+                <Image source={{ uri: selectedProduct.image_url }} style={styles.modalImage} resizeMode="cover" />
+              )}
+              <View style={styles.modalBody}>
+                {selectedProduct.is_pack && (
+                  <View style={styles.modalPackPill}>
+                    <Ionicons name="gift-outline" size={12} color={colors.primary} />
+                    <Text style={styles.modalPackText}>Pack</Text>
+                  </View>
+                )}
+                <Text style={styles.modalName}>{selectedProduct.name}</Text>
+                <View style={styles.modalPriceRow}>
+                  <Text style={styles.modalPrice}>{formatPrice(selectedProduct.price)}</Text>
+                  {discountPercent(selectedProduct.price, selectedProduct.compare_at_price) != null && (
+                    <>
+                      <Text style={styles.modalOldPrice}>{formatPrice(selectedProduct.compare_at_price)}</Text>
+                      <Text style={styles.modalDiscount}>
+                        -{discountPercent(selectedProduct.price, selectedProduct.compare_at_price)}%
+                      </Text>
+                    </>
+                  )}
+                </View>
+                {!!selectedProduct.pack_items && (
+                  <Text style={styles.modalText}>
+                    <Text style={styles.modalLabel}>Incluye: </Text>
+                    {selectedProduct.pack_items}
+                  </Text>
+                )}
+                {!!selectedProduct.description && <Text style={styles.modalText}>{selectedProduct.description}</Text>}
+                <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedProduct(null)}>
+                  <Text style={styles.modalCloseText}>Cerrar</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          )}
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -607,6 +680,32 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '500', color: colors.text, marginTop: 18, marginBottom: 10 },
   galleryRow: { gap: 10, paddingBottom: 6 },
   galleryImage: { width: 140, height: 96, borderRadius: radius.md },
+  productsRow: { gap: 10, paddingBottom: 6 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: spacing.lg },
+  modalCard: { backgroundColor: colors.bg, borderRadius: radius.lg, overflow: 'hidden' },
+  modalImage: { width: '100%', height: 220 },
+  modalBody: { padding: spacing.lg },
+  modalPackPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 8,
+  },
+  modalPackText: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  modalName: { fontSize: 18, fontWeight: '600', color: colors.text },
+  modalPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 6, marginBottom: 10 },
+  modalPrice: { fontSize: 20, fontWeight: '700', color: colors.primary },
+  modalOldPrice: { fontSize: 13, color: colors.textTertiary, textDecorationLine: 'line-through' },
+  modalDiscount: { fontSize: 13, fontWeight: '700', color: colors.secondary },
+  modalLabel: { fontWeight: '600', color: colors.text },
+  modalText: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 8 },
+  modalClose: { marginTop: 8, backgroundColor: colors.primary, borderRadius: radius.md, padding: 12, alignItems: 'center' },
+  modalCloseText: { color: colors.white, fontSize: 14, fontWeight: '600' },
   emptyPromos: { fontSize: 13, color: colors.textSecondary, paddingVertical: 12 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontSize: 14, color: colors.textSecondary },

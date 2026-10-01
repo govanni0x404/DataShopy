@@ -4,7 +4,7 @@ import { supabase } from './client';
 // Resize/compress before upload so a raw 4000px phone photo doesn't turn
 // into a multi-MB Storage object and a slow load on every store card/detail
 // screen. Logos are small and square; covers/gallery photos are wider.
-const MAX_WIDTH_BY_KIND = { logo: 600, cover: 1600, gallery: 1600 };
+const MAX_WIDTH_BY_KIND = { logo: 600, cover: 1600, gallery: 1600, product: 1000 };
 
 const guessExtension = (asset) => {
   const name = String(asset?.fileName || asset?.uri || '');

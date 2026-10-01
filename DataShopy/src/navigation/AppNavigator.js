@@ -31,6 +31,7 @@ import ClientHelpScreen from '../screens/client/ClientHelpScreen';
 // Dueño
 import OwnerDashScreen from '../screens/owner/OwnerDashScreen';
 import ManagePromosScreen from '../screens/owner/ManagePromosScreen';
+import ManageProductsScreen from '../screens/owner/ManageProductsScreen';
 import EditStoreScreen from '../screens/owner/EditStoreScreen';
 import ClaimStoreScreen from '../screens/owner/ClaimStoreScreen';
 import OwnerBrandingScreen from '../screens/owner/OwnerBrandingScreen';
@@ -141,6 +142,7 @@ function OwnerStackScreen({ route }) {
     <OwnerStack.Navigator screenOptions={{ headerShown: false }}>
       <OwnerStack.Screen name="OwnerDash" component={OwnerDashScreen} initialParams={{ owner }} />
       <OwnerStack.Screen name="ManagePromos" component={ManagePromosScreen} />
+      <OwnerStack.Screen name="ManageProducts" component={ManageProductsScreen} />
       <OwnerStack.Screen name="EditStore" component={EditStoreScreen} />
       <OwnerStack.Screen name="ClaimStore" component={ClaimStoreScreen} />
       <OwnerStack.Screen name="OwnerBranding" component={OwnerBrandingScreen} />

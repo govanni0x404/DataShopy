@@ -1,5 +1,16 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingOverlay from '../../components/LoadingOverlay';
@@ -12,6 +23,7 @@ export default function AdminLoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const passwordRef = useRef(null);
 
   const handleEnter = async () => {
     if (!email.trim() || !password) {
@@ -50,46 +62,70 @@ export default function AdminLoginScreen({ navigation }) {
         <View style={styles.backBtn} />
       </View>
 
-      <View style={styles.body}>
-        <View style={styles.iconBadge}>
-          <Ionicons name="shield-checkmark" size={26} color={colors.white} />
-        </View>
-        <Text style={styles.title}>Acceso admin</Text>
-        <Text style={styles.sub}>Ingresa con tu cuenta de administrador para revisar solicitudes de reclamo.</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.hero}>
+            <View style={styles.iconBadge}>
+              <Ionicons name="shield-checkmark" size={26} color={colors.white} />
+            </View>
+            <Text style={styles.title}>Acceso admin</Text>
+            <Text style={styles.sub}>Ingresa con tu cuenta de administrador para revisar solicitudes de reclamo.</Text>
+          </View>
 
-        <Text style={styles.label}>Correo</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="admin@datashopy.com"
-          placeholderTextColor={colors.textTertiary}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+          <View style={styles.card}>
+            <Text style={styles.label}>Correo</Text>
+            <View style={styles.inputRow}>
+              <Ionicons name="mail-outline" size={18} color={colors.textTertiary} />
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="admin@datashopy.com"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                blurOnSubmit={false}
+              />
+            </View>
 
-        <Text style={styles.label}>Contraseña</Text>
-        <View style={styles.passwordRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            placeholderTextColor={colors.textTertiary}
-            secureTextEntry={!showPass}
-          />
-          <TouchableOpacity
-            style={[styles.eyeBtn, showPass && styles.eyeBtnActive]}
-            onPress={() => setShowPass(!showPass)}
-          >
-            <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+            <Text style={styles.label}>Contraseña</Text>
+            <View style={styles.inputRow}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.textTertiary} />
+              <TextInput
+                ref={passwordRef}
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                placeholderTextColor={colors.textTertiary}
+                secureTextEntry={!showPass}
+                autoCapitalize="none"
+                autoComplete="password"
+                returnKeyType="go"
+                onSubmitEditing={handleEnter}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPass(!showPass)}
+                accessibilityLabel={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={showPass ? colors.primary : colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleEnter} disabled={loading} activeOpacity={0.85}>
-          {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.btnText}>Entrar</Text>}
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleEnter} disabled={loading} activeOpacity={0.85}>
+              {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.btnText}>Entrar</Text>}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       <LoadingOverlay visible={loading} label="Ingresando..." />
     </SafeAreaView>
   );
@@ -108,10 +144,11 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
-  body: { flex: 1, justifyContent: 'center', padding: spacing.lg, paddingBottom: spacing.xxl },
+  body: { flexGrow: 1, padding: spacing.lg, paddingBottom: spacing.xxl },
+  hero: { alignItems: 'center', paddingTop: spacing.lg, paddingBottom: spacing.lg },
   iconBadge: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -123,21 +160,28 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text },
-  sub: { fontSize: 13, color: colors.textSecondary, marginTop: 6, lineHeight: 18 },
-  label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 18 },
-  input: {
+  title: { fontSize: 20, fontWeight: '700', color: colors.text },
+  sub: { fontSize: 13, color: colors.textSecondary, marginTop: 6, lineHeight: 18, textAlign: 'center', maxWidth: 300 },
+  card: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 0.5,
+    borderColor: colors.borderLight,
+    padding: spacing.lg,
+  },
+  label: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, marginTop: 14 },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     borderWidth: 0.5,
     borderColor: colors.border,
     borderRadius: radius.md,
-    padding: 12,
-    fontSize: 14,
-    color: colors.text,
-    backgroundColor: colors.bg,
+    paddingLeft: 12,
+    backgroundColor: colors.bgSecondary,
   },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { padding: 10, borderRadius: radius.full },
-  eyeBtnActive: { backgroundColor: colors.primaryLight },
+  input: { flex: 1, paddingVertical: 12, paddingRight: 12, fontSize: 14, color: colors.text },
+  eyeBtn: { paddingHorizontal: 12, paddingVertical: 10 },
   btnPrimary: {
     marginTop: 20,
     backgroundColor: colors.primary,

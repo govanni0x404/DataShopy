@@ -153,6 +153,17 @@ export default function OwnerDashScreen({ navigation, route }) {
           <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('ManageProducts', { owner, storeId: store?.id })}
+        >
+          <View style={[styles.menuIcon, { backgroundColor: colors.brandMint }]}>
+            <Ionicons name="cube-outline" size={18} color={colors.brandAccent} />
+          </View>
+          <Text style={styles.menuLabel}>Mis productos</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EditStore', { owner })}>
           <View style={[styles.menuIcon, { backgroundColor: colors.primaryLight }]}>
             <Ionicons name="storefront-outline" size={18} color={colors.primary} />

@@ -17,6 +17,7 @@ export default function CategoryFilter({ selected, onSelect }) {
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
     >
       {categories.map((cat) => {
         const isActive = selected === cat.id;

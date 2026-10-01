@@ -107,6 +107,11 @@ export default function HomeScreen({ navigation, route }) {
     setCityFallback(fallback);
     setStores(visible);
   };
+  // Async work (the catalog sync) must reload with the *current* category/city,
+  // not the ones captured when it started — otherwise a sync finishing after the
+  // user taps a category chip overwrites the filtered list with the old one.
+  const loadStoresRef = useRef(loadStores);
+  loadStoresRef.current = loadStores;
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -366,7 +371,7 @@ export default function HomeScreen({ navigation, route }) {
       setAppMeta('sb_sync_last', new Date().toISOString());
       if (!mountedRef.current) return;
       setGoogleNote(res.inserted || res.updated ? `Catálogo: +${res.inserted} / ~${res.updated}` : '');
-      loadStores();
+      loadStoresRef.current();
     } catch (e) {
       console.warn('[Home] catalog sync failed', e);
       if (!mountedRef.current) return;
@@ -439,6 +444,7 @@ export default function HomeScreen({ navigation, route }) {
         numColumns={2}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View>
             {!!nearbyPromo && (
@@ -490,7 +496,14 @@ export default function HomeScreen({ navigation, route }) {
               </View>
             </View>
 
-            <CategoryFilter selected={selectedCategoryId} onSelect={setSelectedCategoryId} />
+            <CategoryFilter
+              selected={selectedCategoryId}
+              onSelect={(id) => {
+                Keyboard.dismiss();
+                // Tapping the active chip again clears the filter.
+                setSelectedCategoryId((prev) => (prev === id ? 'all' : id));
+              }}
+            />
 
             <View style={styles.countRow}>
               <View style={styles.countHeaderRow}>
